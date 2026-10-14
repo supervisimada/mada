@@ -397,11 +397,11 @@
             ` : ''}
           </nav>
 
-          <!-- Footer Switch Account / Logout -->
+          <!-- Logout -->
           <div class="p-3 border-t border-slate-800 flex flex-col gap-2">
-            <select onchange="switchUserRole(this.value)" class="w-full p-2 bg-slate-800 text-white rounded-lg text-xs font-semibold border border-slate-700">
-              ${appState.users.map(u => `<option value="${u.id}" ${u.id === user.id ? 'selected' : ''}>${u.name} (${u.role})</option>`).join('')}
-            </select>
+            <button onclick="logoutSupabase()" class="w-full p-2 bg-slate-800 hover:bg-red-900/70 text-white rounded-lg text-xs font-semibold border border-slate-700">
+              <i class="fa-solid fa-right-from-bracket mr-2"></i>Keluar
+            </button>
           </div>
         </aside>
 
@@ -1194,5 +1194,241 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       showToast("Laporan Excel V2 diunduh!");
     }
   </script>
+
+  <!-- Supabase integration layer: configure URL and publishable/anon key below. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // WAJIB: isi URL project dan publishable/anon key dari Supabase > Project Settings > API.
+    // Jangan pernah menaruh service_role/secret key di HTML.
+    const SUPABASE_URL = "https://zbdksbtptyecyaoqsrse.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_gwA0ueJ42HnZCnGoDW0aAA_KIjroagU";
+    const LOGIN_EMAIL_DOMAIN = "auth.maabudarrin.sch.id";
+    let sb = null;
+    let supabaseReady = false;
+    let originalSaveState = saveState;
+    let supabaseSaveTimer = null;
+
+    function escHtml(v) {
+      return String(v ?? "").replace(/[&<>"']/g, c => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+      }[c]));
+    }
+
+    function showLoginScreen(message = "") {
+      const app = document.getElementById("app");
+      app.innerHTML = `
+        <div class="min-h-full w-full flex items-center justify-center p-5 bg-slate-100">
+          <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 p-7">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xl">MA</div>
+              <div><h1 class="font-extrabold text-slate-900">MA ABU DARRIN</h1><p class="text-xs text-slate-500">Sistem Supervisi Akademik & Manajerial</p></div>
+            </div>
+            ${message ? `<div class="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs">${escHtml(message)}</div>` : ""}
+            <form id="supabaseLoginForm" class="space-y-4">
+              <div><label class="block text-xs font-semibold mb-1 text-slate-700">ID Pengguna</label>
+              <input id="loginId" autocomplete="username" required class="w-full border rounded-xl p-3 text-sm" placeholder="Contoh: ADMIN001"></div>
+              <div><label class="block text-xs font-semibold mb-1 text-slate-700">Password</label>
+              <input id="loginPassword" type="password" autocomplete="current-password" required class="w-full border rounded-xl p-3 text-sm" placeholder="Masukkan password"></div>
+              <button id="loginSubmit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl p-3 font-bold text-sm">Masuk</button>
+            </form>
+            <p class="text-[11px] text-slate-500 mt-5">Login menggunakan ID akun yang dibuat administrator. Akun harus terdaftar di Supabase Authentication dan tabel profiles.</p>
+            <p class="text-[10px] text-slate-400 mt-3">Koneksi: <span id="connectionStatus">memeriksa konfigurasi...</span></p>
+          </div>
+        </div>`;
+      document.getElementById("connectionStatus").textContent = supabaseReady ? "Supabase siap" : "URL / key Supabase belum dikonfigurasi";
+      document.getElementById("supabaseLoginForm").addEventListener("submit", handleSupabaseLogin);
+    }
+
+    async function handleSupabaseLogin(event) {
+      event.preventDefault();
+      if (!supabaseReady) return showLoginScreen("Konfigurasikan SUPABASE_URL dan SUPABASE_ANON_KEY pada file HTML terlebih dahulu.");
+      const btn = document.getElementById("loginSubmit");
+      const loginId = document.getElementById("loginId").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      btn.disabled = true; btn.textContent = "Memeriksa akun...";
+      try {
+        const { data, error } = await sb.auth.signInWithPassword({
+          email: `${loginId.toLowerCase()}@${LOGIN_EMAIL_DOMAIN}`,
+          password
+        });
+        if (error) throw error;
+        const { data: profile, error: profileError } = await sb.from("profiles")
+          .select("id,user_id,full_name,role,nip,subject,active")
+          .eq("id", data.user.id).maybeSingle();
+        if (profileError) throw profileError;
+        if (!profile) {
+          await sb.auth.signOut();
+          throw new Error("Akun Auth ditemukan, tetapi profil tidak ditemukan. Pastikan profiles.id sama dengan UUID Auth.");
+        }
+        if (!profile.active) {
+          await sb.auth.signOut();
+          throw new Error("Akun dinonaktifkan. Hubungi administrator.");
+        }
+        appState.currentUser = profileToAppUser(profile);
+        await loadSupabaseState();
+        await loadProfiles();
+        appState.currentUser = appState.users.find(u => u.authId === data.user.id) || profileToAppUser(profile);
+        appState.activeMenu = "dashboard";
+        renderApp();
+        showToast("Login Supabase berhasil.");
+      } catch (err) {
+        console.error("Login Supabase:", err);
+        showLoginScreen(err.message || "Login gagal.");
+      }
+    }
+
+    function profileToAppUser(p) {
+      return {
+        id: p.user_id,
+        authId: p.id,
+        name: p.full_name,
+        role: p.role,
+        nip: p.nip || "",
+        subject: p.subject || "",
+        active: p.active
+      };
+    }
+
+    async function loadProfiles() {
+      const { data, error } = await sb.from("profiles")
+        .select("id,user_id,full_name,role,nip,subject,active")
+        .eq("active", true).order("created_at", { ascending: true });
+      if (error) throw error;
+      appState.users = (data || []).map(profileToAppUser);
+    }
+
+    async function loadSupabaseState() {
+      const { data, error } = await sb.from("app_data")
+        .select("data_key,payload").eq("data_key", "main").maybeSingle();
+      if (error) throw error;
+      if (data && data.payload) {
+        const remote = data.payload;
+        const keys = ["activeYear","activeMenu","instrumentsAcademic","instrumentsManagerial","mappings","classes","schedules","documents","academicResults","managerialResults","auditLogs"];
+        keys.forEach(k => { if (remote[k] !== undefined) appState[k] = remote[k]; });
+      }
+    }
+
+    async function saveSupabaseState() {
+      if (!supabaseReady || !sb) return;
+      const { data: sessionData } = await sb.auth.getSession();
+      if (!sessionData.session) return;
+      const payload = {};
+      ["activeYear","activeMenu","instrumentsAcademic","instrumentsManagerial","mappings","classes","schedules","documents","academicResults","managerialResults","auditLogs"].forEach(k => payload[k] = appState[k]);
+      const { error } = await sb.from("app_data").upsert({
+        data_key: "main",
+        payload,
+        updated_by: sessionData.session.user.id,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "data_key" });
+      if (error) {
+        console.error("Sinkronisasi Supabase gagal:", error);
+        showToast("Data lokal tersimpan, tetapi sinkronisasi Supabase gagal: " + error.message, "error");
+      }
+    }
+
+    // Tetap menyimpan salinan lokal, dan menyinkronkan data ke Supabase.
+    saveState = function() {
+      try {
+        const safe = { ...appState, currentUser: null, users: [] };
+        localStorage.setItem("ma_abu_darrin_supervisi_v2", JSON.stringify(safe));
+      } catch(e) { console.warn("Penyimpanan lokal dilewati", e); }
+      clearTimeout(supabaseSaveTimer);
+      supabaseSaveTimer = setTimeout(() => saveSupabaseState(), 250);
+    };
+
+    async function logoutSupabase() {
+      if (sb) await sb.auth.signOut();
+      appState.currentUser = null;
+      showLoginScreen();
+    }
+
+    // Admin membuat akun melalui Edge Function. Password tidak pernah disimpan di browser/localStorage.
+    async function openAddUserModal() {
+      if (!appState.currentUser || appState.currentUser.role !== "Admin") return showToast("Hanya Admin yang dapat membuat pengguna.", "error");
+      const userId = prompt("ID login baru (contoh GURU003):");
+      if (!userId) return;
+      const fullName = prompt("Nama lengkap pengguna:");
+      if (!fullName) return;
+      const role = prompt("Peran: Supervisor / Guru / Tendik", "Guru");
+      if (!["Supervisor","Guru","Tendik"].includes(role)) return showToast("Peran harus Supervisor, Guru, atau Tendik.", "error");
+      const password = prompt("Password awal (minimal 8 karakter):");
+      if (!password || password.length < 8) return showToast("Password minimal 8 karakter.", "error");
+      const nip = prompt("NIP (boleh dikosongkan):", "") || "";
+      const subject = role === "Guru" ? (prompt("Mata pelajaran (boleh dikosongkan):", "") || "") : "";
+      try {
+        const { data: sess } = await sb.auth.getSession();
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-user`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${sess.session.access_token}`,
+            "apikey": SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ action: "create", user_id: userId, full_name: fullName, role, password, nip, subject })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Gagal membuat akun.");
+        await loadProfiles();
+        saveState();
+        renderApp();
+        showToast(`Akun ${userId} berhasil dibuat dan disimpan ke Supabase.`);
+      } catch (err) {
+        console.error(err); showToast("Gagal membuat pengguna: " + err.message, "error");
+      }
+    }
+
+    async function resetPassword(userId) {
+      if (!appState.currentUser || appState.currentUser.role !== "Admin") return showToast("Hanya Admin yang dapat mereset password.", "error");
+      const password = prompt("Masukkan password baru (minimal 8 karakter):");
+      if (!password || password.length < 8) return showToast("Password minimal 8 karakter.", "error");
+      try {
+        const { data: sess } = await sb.auth.getSession();
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-user`, {
+          method: "POST",
+          headers: { "Content-Type":"application/json", "Authorization":`Bearer ${sess.session.access_token}`, "apikey":SUPABASE_ANON_KEY },
+          body: JSON.stringify({ action:"reset_password", user_id:userId, password })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Reset password gagal.");
+        showToast("Password berhasil diubah di Supabase.");
+      } catch (err) { showToast("Reset password gagal: " + err.message, "error"); }
+    }
+
+    // Data tidak lagi otomatis login sebagai Admin contoh dari localStorage.
+    window.onload = async function() {
+      if (window.supabase && SUPABASE_URL.startsWith("https://") &&
+          !SUPABASE_URL.includes("GANTI-PROJECT") &&
+          SUPABASE_ANON_KEY.length > 20 && !SUPABASE_ANON_KEY.includes("GANTI_DENGAN")) {
+        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabaseReady = true;
+        const { data } = await sb.auth.getSession();
+        if (data.session) {
+          try {
+            const { data: profile, error } = await sb.from("profiles")
+              .select("id,user_id,full_name,role,nip,subject,active")
+              .eq("id", data.session.user.id).maybeSingle();
+            if (error) throw error;
+            if (!profile || !profile.active) throw new Error("Profil tidak ditemukan atau tidak aktif.");
+            appState.currentUser = profileToAppUser(profile);
+            await loadSupabaseState();
+            await loadProfiles();
+            appState.currentUser = appState.users.find(u => u.authId === data.session.user.id) || profileToAppUser(profile);
+            renderApp();
+            return;
+          } catch (e) {
+            console.error(e); await sb.auth.signOut(); showLoginScreen(e.message);
+            return;
+          }
+        }
+      }
+      showLoginScreen();
+    };
+
+    // Menampilkan error jika koneksi Supabase belum disetel.
+    window.addEventListener("unhandledrejection", e => {
+      console.error("Kesalahan aplikasi:", e.reason);
+    });
+  </script>
+
 </body>
 </html>
