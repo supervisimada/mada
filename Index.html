@@ -1,4 +1,3 @@
-```
 <!DOCTYPE html>
 <html lang="id" class="h-full bg-slate-50">
 <head>
@@ -744,7 +743,7 @@
     function renderMappingView() {
       return `
         <div class="space-y-6">
-          <h3 class="font-bold text-slate-800 dark:text-white text-base">Pemetaan Supervisor ke Kelompok Guru Binaan</h3>
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-bold text-slate-800 dark:text-white text-base">Pemetaan Supervisor ke Kelompok Guru Binaan</h3>${isAdmin() ? dataActionBar('mappings') : ''}</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             ${appState.mappings.map(m => `
               <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
@@ -776,30 +775,13 @@
 
     function editMapping(mappingId) {
       if (!isAdmin()) return showToast("Hanya Admin yang dapat mengatur penugasan.", "error");
-      const mapping = (appState.mappings || []).find(m => String(m.id) === String(mappingId));
-      if (!mapping) return showToast("Data penugasan tidak ditemukan.", "error");
-      const supervisors = (appState.users || []).filter(u => u.role === "Supervisor");
-      const teachers = (appState.users || []).filter(u => u.role === "Guru");
-      const supervisorChoices = supervisors.map(u => `${u.id} = ${u.name}`).join("\n");
-      const supervisorId = prompt(`Masukkan ID Supervisor untuk penugasan ini:\n${supervisorChoices}`, mapping.supervisorId || "");
-      if (supervisorId === null) return;
-      if (!supervisors.some(u => String(u.id).toLowerCase() === supervisorId.trim().toLowerCase())) return showToast("ID Supervisor tidak ditemukan.", "error");
-      const teacherChoices = teachers.map(u => `${u.id} = ${u.name}`).join("\n");
-      const currentIds = (mapping.teacherIds || []).join(",");
-      const teacherIds = prompt(`Masukkan ID Guru binaan dipisahkan koma. Kosongkan untuk tanpa guru.\n${teacherChoices}`, currentIds);
-      if (teacherIds === null) return;
-      const ids = teacherIds.split(",").map(x => x.trim()).filter(Boolean);
-      const invalid = ids.filter(id => !teachers.some(u => String(u.id).toLowerCase() === id.toLowerCase()));
-      if (invalid.length) return showToast(`ID Guru tidak ditemukan: ${invalid.join(", ")}`, "error");
-      const supervisor = supervisors.find(u => String(u.id).toLowerCase() === supervisorId.trim().toLowerCase());
-      mapping.supervisorId = supervisor.id; mapping.supervisorName = supervisor.name; mapping.teacherIds = [...new Set(ids)];
-      saveState(); addAuditLog(`Memperbarui penugasan supervisor ${supervisor.name}`); renderApp(); showToast("Penugasan guru binaan diperbarui.");
+      openBulkDataEditor('mappings', mappingId);
     }
 
     function renderSchedulesView() {
       return `
         <div class="space-y-6">
-          <h3 class="font-bold text-slate-800 dark:text-white text-base">Penjadwalan & Tahapan Observasi</h3>
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-bold text-slate-800 dark:text-white text-base">Penjadwalan & Tahapan Observasi</h3>${(isAdmin() || isSupervisor()) ? dataActionBar('schedules') : ''}</div>
           <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-50 dark:bg-slate-700/50 uppercase font-semibold">
@@ -834,16 +816,10 @@
 
     function editSchedule(id) {
       if (!(isAdmin() || isSupervisor())) return showToast("Anda tidak berhak mengubah jadwal.", "error");
-      const s = (appState.schedules || []).find(x => String(x.id) === String(id));
-      if (!s) return showToast("Jadwal tidak ditemukan.", "error");
-      if (isSupervisor() && !(String(s.supervisorId || '') === currentUserId() || String(s.supervisorName || '') === currentUserName() || isAssignedTeacherRecord(s))) return showToast("Jadwal ini bukan penugasan Anda.", "error");
-      const date = prompt("Tanggal supervisi (YYYY-MM-DD):", s.date || ""); if (!date) return;
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return showToast("Format tanggal harus YYYY-MM-DD.", "error");
-      const stage = prompt("Tahapan supervisi:", s.stage || "Observasi Kelas"); if (!stage) return;
-      const status = prompt("Status (Terjadwal / Selesai / Ditunda):", s.status || "Terjadwal"); if (!status) return;
-      s.date = date; s.stage = stage.trim(); s.status = status.trim();
-      saveState(); addAuditLog(`Mengubah jadwal supervisi ${s.teacherName} menjadi ${date}`); renderApp();
-      showToast("Jadwal berhasil diperbarui.");
+      const row=(appState.schedules||[]).find(x=>String(x.id)===String(id));
+      if (!row) return showToast("Jadwal tidak ditemukan.", "error");
+      if (isSupervisor() && !(String(row.supervisorId||'')===currentUserId() || String(row.supervisorName||'')===currentUserName() || isAssignedTeacherRecord(row))) return showToast("Jadwal ini bukan penugasan Anda.", "error");
+      openBulkDataEditor('schedules', id);
     }
 
     function renderDocumentsView() {
@@ -861,7 +837,7 @@
         </div>` : '';
       return `
         <div class="space-y-6">
-          <h3 class="font-bold text-slate-800 dark:text-white text-base">Bank Dokumen Pembelajaran & Modul Ajar Guru</h3>
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-bold text-slate-800 dark:text-white text-base">Bank Dokumen Pembelajaran & Modul Ajar Guru</h3>${(isAdmin() || isSupervisor()) ? dataActionBar('documents') : ''}</div>
           ${teacherUpload}
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${docs.map(d => `
@@ -929,6 +905,7 @@
 
       return `
         <div class="max-w-4xl mx-auto space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-bold text-slate-800 dark:text-white text-base">Supervisi Akademik</h3>${dataActionBar('academicResults')}</div>
           <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
             <h3 class="font-bold text-base text-slate-800 dark:text-white mb-4 border-b border-slate-200 dark:border-slate-700 pb-3">
               <i class="fa-solid fa-clipboard-user text-brand-600 mr-2"></i>Informasi Observasi Kelas (Akademik)
@@ -1072,6 +1049,7 @@
 
       return `
         <div class="max-w-4xl mx-auto space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-bold text-slate-800 dark:text-white text-base">Data Supervisi Manajerial</h3>${dataActionBar('managerialResults')}</div>
           <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
             <h3 class="font-bold text-base text-slate-800 dark:text-white mb-4 border-b border-slate-200 dark:border-slate-700 pb-3">
               <i class="fa-solid fa-building-user text-purple-600 mr-2"></i>Informasi Supervisi Manajerial (Tendik / TU)
@@ -1169,7 +1147,7 @@
     function renderRtlView() {
       return `
         <div class="space-y-6">
-          <h3 class="font-bold text-slate-800 dark:text-white text-base">Rencana Tindak Lanjut & Matriks Pembinaan PKB Guru</h3>
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-bold text-slate-800 dark:text-white text-base">Rencana Tindak Lanjut & Matriks Pembinaan PKB Guru</h3>${(isAdmin() || isSupervisor()) ? dataActionBar('academicResults') : ''}</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${scopedAcademicResults().map(r => `
               <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
@@ -1198,7 +1176,7 @@
       const reportResults = scopedAcademicResults();
       return `
         <div class="space-y-6">
-          <h3 class="font-bold text-slate-800 dark:text-white text-base">Pusat Laporan & Cetak Berita Acara Supervisi</h3>
+          <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-bold text-slate-800 dark:text-white text-base">Pusat Laporan & Cetak Berita Acara Supervisi</h3>${(isAdmin() || isSupervisor()) ? dataActionBar('academicResults') : ''}</div>
           
           <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
             <div class="px-6 py-4 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
@@ -1365,6 +1343,90 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
     // lalu disimpan melalui mekanisme saveState yang sudah tersambung ke Supabase.
     let excelImportRows = [];
     let excelImportFileName = '';
+    const BULK_FIELDS = {
+      schedules: [['teacherName','Nama Guru'],['supervisorName','Nama Supervisor'],['class','Kelas'],['subject','Mata Pelajaran'],['date','Tanggal (YYYY-MM-DD)'],['stage','Tahap'],['status','Status']],
+      documents: [['teacherName','Nama Guru'],['title','Judul Dokumen'],['category','Kategori'],['date','Tanggal (YYYY-MM-DD)'],['status','Status'],['notes','Catatan'],['reviewNotes','Catatan Review']],
+      academicResults: [['teacherName','Nama Guru'],['supervisorName','Nama Supervisor'],['date','Tanggal (YYYY-MM-DD)'],['class','Kelas'],['subject','Mata Pelajaran'],['percentage','Nilai %'],['grade','Predikat'],['notes','Catatan'],['recommendation','Rekomendasi'],['rtl','Tindak Lanjut']],
+      managerialResults: [['unitName','Unit'],['staffName','Nama Tendik'],['supervisorName','Nama Supervisor'],['date','Tanggal (YYYY-MM-DD)'],['percentage','Nilai %'],['grade','Predikat'],['notes','Catatan'],['recommendation','Rekomendasi']],
+      mappings: [['supervisorId','ID Supervisor'],['supervisorName','Nama Supervisor'],['teacherIds','ID Guru (pisahkan koma)']],
+      classes: [['value','Nama Kelas']]
+    };
+    const BULK_LABELS = {schedules:'Jadwal Supervisi',documents:'Dokumen Guru',academicResults:'Hasil Supervisi Akademik',managerialResults:'Hasil Supervisi Manajerial',mappings:'Pemetaan Supervisor-Guru',classes:'Daftar Kelas'};
+    function dataActionBar(type) {
+      return `<div class="flex flex-wrap gap-2"><button onclick="openBulkDataEditor('${type}')" class="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold"><i class="fa-solid fa-table-cells-large mr-1"></i>Tambah/Ubah Data Manual (Form Massal)</button><button onclick="openImportFor('${type}')" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"><i class="fa-solid fa-file-excel mr-1"></i>Import Excel</button></div>`;
+    }
+    function openImportFor(type) {
+      if (!isAdmin()) return showToast('Import Excel hanya untuk Admin.', 'error');
+      appState.activeMenu='import_excel'; renderApp();
+      const select=document.getElementById('excelImportType'); if(select) select.value=type;
+      const preview=document.getElementById('excelImportPreview'); if(preview) preview.innerHTML='<p class="text-sm text-slate-400">Pilih file untuk melihat pratinjau data.</p>';
+    }
+    function bulkVisibleRows(type) {
+      if(type==='schedules') return scopedSchedules();
+      if(type==='documents') return scopedDocuments();
+      if(type==='academicResults') return scopedAcademicResults();
+      if(type==='managerialResults') return isAdmin() ? (appState.managerialResults||[]) : (appState.managerialResults||[]).filter(r=>String(r.supervisorName||'')===currentUserName());
+      if(type==='mappings') return appState.mappings||[];
+      if(type==='classes') return appState.classes||[];
+      return [];
+    }
+    function openBulkDataEditor(type, focusId='') {
+      if (!BULK_FIELDS[type]) return showToast('Jenis data ini belum mendukung formulir massal.', 'error');
+      if(type==='mappings' && !isAdmin()) return showToast('Pemetaan hanya dapat diubah Admin.', 'error');
+      if(type==='schedules' && !(isAdmin()||isSupervisor())) return showToast('Akses ditolak.', 'error');
+      if(['documents','academicResults','managerialResults'].includes(type) && !(isAdmin()||isSupervisor())) return showToast('Akses ditolak.', 'error');
+      const rows=bulkVisibleRows(type).map((r,i)=> type==='classes' ? ({id:`CLASS-${i+1}`,value:r}) : ({...r}));
+      if(focusId && !rows.some(r=>String(r.id)===String(focusId))) return showToast('Data tidak ditemukan atau tidak masuk cakupan akses Anda.', 'error');
+      const fields=BULK_FIELDS[type];
+      const fieldInput=(row,idx,key,label)=>`<td class="p-1 border-b border-slate-200 align-top"><input data-bulk-index="${idx}" data-bulk-key="${key}" aria-label="${label}" class="w-full min-w-32 border border-slate-300 rounded-md px-2 py-2 text-xs text-slate-800 bg-white" value="${escHtml(key==='teacherIds' ? (Array.isArray(row[key])?row[key].join(','):row[key]||'') : (row[key]??''))}" placeholder="${escHtml(label)}"></td>`;
+      const rowsHtml=rows.map((r,i)=>`<tr data-bulk-row="${i}"><td class="p-2 border-b text-xs font-mono">${escHtml(r.id||'BARU')}</td>${fields.map(([key,label])=>fieldInput(r,i,key,label)).join('')}<td class="p-2 border-b"><button onclick="removeBulkRow(this)" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs">Hapus</button></td></tr>`).join('');
+      const modal=document.createElement('div'); modal.id='bulkDataModal'; modal.className='fixed inset-0 z-[100] bg-slate-950/70 p-3 md:p-8 flex items-center justify-center';
+      modal.innerHTML=`<section class="bg-white rounded-2xl shadow-2xl w-full max-w-[96vw] max-h-[92vh] flex flex-col overflow-hidden"><header class="p-5 border-b flex items-start justify-between gap-3"><div><h3 class="font-bold text-lg text-slate-900">Form Massal: ${BULK_LABELS[type]}</h3><p class="text-xs text-slate-500 mt-1">Isi atau ubah banyak baris sekaligus, lalu simpan sekali. Kolom ID otomatis untuk data baru.</p></div><button onclick="closeBulkDataEditor()" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700">Tutup</button></header><div class="p-4 flex flex-wrap gap-2 border-b"><button onclick="addBulkRow()" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>Tambah Baris</button><span class="text-xs text-slate-500 self-center">${rows.length} baris saat ini • kolom dapat digeser ke samping</span></div><div class="overflow-auto flex-1"><table class="min-w-full border-collapse"><thead class="sticky top-0 bg-slate-100"><tr><th class="p-2 text-left text-xs">ID</th>${fields.map(([k,l])=>`<th class="p-2 text-left text-xs whitespace-nowrap">${escHtml(l)}</th>`).join('')}<th class="p-2 text-left text-xs">Aksi</th></tr></thead><tbody id="bulkDataRows">${rowsHtml}</tbody></table></div><footer class="p-4 border-t flex justify-between items-center gap-3"><p class="text-[11px] text-slate-500">Simpan akan menerapkan seluruh perubahan dalam formulir ini.</p><div class="flex gap-2"><button onclick="closeBulkDataEditor()" class="px-4 py-2 rounded-lg border text-xs font-bold">Batal</button><button onclick="saveBulkDataEditor('${type}')" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i>Simpan Semua</button></div></footer></section>`;
+      modal.dataset.type=type; modal.dataset.fields=JSON.stringify(fields); modal.dataset.rows=JSON.stringify(rows); document.body.appendChild(modal);
+    }
+    function addBulkRow() {
+      const modal=document.getElementById('bulkDataModal'); if(!modal) return;
+      const type=modal.dataset.type, fields=JSON.parse(modal.dataset.fields), tbody=document.getElementById('bulkDataRows');
+      const idx=`new-${Date.now()}-${Math.random().toString(36).slice(2,6)}`; const row=type==='classes'?{value:''}:{};
+      const tr=document.createElement('tr'); tr.dataset.bulkRow=String(idx);
+      tr.innerHTML=`<td class="p-2 border-b text-xs font-mono">BARU</td>${fields.map(([key,label])=>`<td class="p-1 border-b align-top"><input data-bulk-index="${idx}" data-bulk-key="${key}" aria-label="${label}" class="w-full min-w-32 border border-slate-300 rounded-md px-2 py-2 text-xs text-slate-800 bg-white" value="" placeholder="${escHtml(label)}"></td>`).join('')}<td class="p-2 border-b"><button onclick="removeBulkRow(this)" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs">Hapus</button></td>`; tbody.appendChild(tr);
+    }
+    function removeBulkRow(btn) { btn.closest('tr')?.remove(); }
+    function closeBulkDataEditor() { document.getElementById('bulkDataModal')?.remove(); }
+    function saveBulkDataEditor(type) {
+      const modal=document.getElementById('bulkDataModal'); if(!modal || modal.dataset.type!==type) return;
+      const fields=JSON.parse(modal.dataset.fields), original=JSON.parse(modal.dataset.rows), trs=[...document.querySelectorAll('#bulkDataRows tr')];
+      const oldById=new Map(original.map(r=>[String(r.id||''),r]));
+      const updated=[];
+      for(const tr of trs) {
+        const inputs=[...tr.querySelectorAll('input[data-bulk-key]')], obj={}; inputs.forEach(inp=>obj[inp.dataset.bulkKey]=inp.value.trim());
+        if(!Object.values(obj).some(Boolean)) continue;
+        const rowIndex=Number(tr.dataset.bulkRow); const old=Number.isInteger(rowIndex) ? oldById.get(String(original[rowIndex]?.id||'')) : undefined;
+        if(type==='classes') { updated.push(obj.value); continue; }
+        const id=old?.id || `${type.toUpperCase()}-${Date.now()}-${updated.length+1}`;
+        const row={...(old||{}),...obj,id};
+        if(type==='mappings') {
+          const supervisor=(appState.users||[]).find(u=>String(u.id).toLowerCase()===String(row.supervisorId||'').toLowerCase());
+          if(row.supervisorId && !supervisor) return showToast(`ID Supervisor tidak ditemukan: ${row.supervisorId}`,'error');
+          row.supervisorName=supervisor?.name || row.supervisorName || '';
+          const raw=String(row.teacherIds||''); row.teacherIds=[...new Set(raw.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean))];
+          const valid=new Set((appState.users||[]).filter(u=>u.role==='Guru').map(u=>String(u.id).toLowerCase()));
+          const invalid=row.teacherIds.filter(x=>!valid.has(String(x).toLowerCase())); if(invalid.length) return showToast(`ID Guru tidak ditemukan: ${invalid.join(', ')}`,'error');
+        }
+        if(type==='schedules' && isSupervisor() && !(String(row.supervisorId||'')===currentUserId() || String(row.supervisorName||'')===currentUserName() || isAssignedTeacherRecord(row))) return showToast('Supervisor hanya boleh menyimpan jadwal dalam cakupan binaannya.','error');
+        if(type==='academicResults') { row.percentage=Number(String(row.percentage||0).replace('%','').replace(',','.'))||0; row.scores=old?.scores||{}; row.signatures=old?.signatures||{supervisor:false,teacher:false}; }
+        if(type==='managerialResults') { row.percentage=Number(String(row.percentage||0).replace('%','').replace(',','.'))||0; row.scores=old?.scores||{}; }
+        updated.push(row);
+      }
+      if(type==='classes') appState.classes=[...new Set(updated.filter(Boolean))];
+      else {
+        const visibleIds=new Set(original.map(r=>String(r.id||'')));
+        const base=(appState[type]||[]).filter(r=>!visibleIds.has(String(r.id||'')));
+        appState[type]=[...base,...updated];
+      }
+      saveState(); addAuditLog(`Form massal: ${BULK_LABELS[type]} (${updated.length} baris disimpan)`); closeBulkDataEditor(); renderApp(); showToast(`${updated.length} baris ${BULK_LABELS[type]} berhasil disimpan.`);
+    }
+
     function renderExcelImportView() {
       if (!isAdmin()) return '<div class="p-6 rounded-xl bg-red-50 text-red-700">Akses ditolak. Menu ini hanya untuk administrator.</div>';
       return `
@@ -1666,36 +1728,25 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
     // Admin membuat akun melalui Edge Function. Password tidak pernah disimpan di browser/localStorage.
     async function openAddUserModal() {
       if (!appState.currentUser || !isAdmin()) return showToast("Hanya Admin yang dapat membuat pengguna.", "error");
-      const userId = prompt("ID login baru (contoh GURU003):");
-      if (!userId) return;
-      const fullName = prompt("Nama lengkap pengguna:");
-      if (!fullName) return;
-      const role = prompt("Peran: Supervisor / Guru", "Guru");
-      if (!["Supervisor","Guru"].includes(role)) return showToast("Peran harus Supervisor atau Guru.", "error");
-      const password = prompt("Password awal (minimal 8 karakter):");
-      if (!password || password.length < 8) return showToast("Password minimal 8 karakter.", "error");
-      const nip = prompt("NIP (boleh dikosongkan):", "") || "";
-      const subject = role === "Guru" ? (prompt("Mata pelajaran (boleh dikosongkan):", "") || "") : "";
+      document.getElementById('createUserFormModal')?.remove();
+      const modal=document.createElement('div'); modal.id='createUserFormModal'; modal.className='fixed inset-0 z-[100] bg-slate-950/70 p-4 flex items-center justify-center';
+      modal.innerHTML=`<section class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"><header class="p-5 border-b flex items-center justify-between"><div><h3 class="font-bold text-lg text-slate-900">Tambah Pengguna Baru</h3><p class="text-xs text-slate-500 mt-1">Isi seluruh data dalam satu formulir.</p></div><button onclick="document.getElementById('createUserFormModal').remove()" class="px-3 py-2 bg-slate-100 rounded-lg text-sm">Tutup</button></header><form id="createUserForm" onsubmit="submitUserCreateForm(event)" class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-xs font-bold mb-1">ID Login *</label><input name="user_id" required class="w-full border rounded-lg p-3 text-sm" placeholder="GURU003" autocomplete="off"></div><div><label class="block text-xs font-bold mb-1">Nama Lengkap *</label><input name="full_name" required class="w-full border rounded-lg p-3 text-sm" placeholder="Nama lengkap"></div><div><label class="block text-xs font-bold mb-1">Role *</label><select name="role" required class="w-full border rounded-lg p-3 text-sm"><option value="Guru">Guru</option><option value="Supervisor">Supervisor</option></select></div><div><label class="block text-xs font-bold mb-1">Password Awal * (min. 8 karakter)</label><input name="password" type="password" minlength="8" required class="w-full border rounded-lg p-3 text-sm" autocomplete="new-password"></div><div><label class="block text-xs font-bold mb-1">NIP</label><input name="nip" class="w-full border rounded-lg p-3 text-sm" placeholder="Opsional"></div><div><label class="block text-xs font-bold mb-1">Mata Pelajaran</label><input name="subject" class="w-full border rounded-lg p-3 text-sm" placeholder="Untuk Guru (opsional)"></div><div class="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" onclick="document.getElementById('createUserFormModal').remove()" class="px-4 py-2 rounded-lg border text-sm">Batal</button><button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-bold">Buat Akun</button></div></form></section>`;
+      document.body.appendChild(modal);
+    }
+    async function submitUserCreateForm(event) {
+      event.preventDefault();
+      if (!isAdmin()) return showToast('Hanya Admin yang dapat membuat pengguna.', 'error');
+      const form=event.currentTarget, fd=new FormData(form);
+      const userId=String(fd.get('user_id')||'').trim(), fullName=String(fd.get('full_name')||'').trim(), role=String(fd.get('role')||''), password=String(fd.get('password')||''), nip=String(fd.get('nip')||'').trim(), subject=String(fd.get('subject')||'').trim();
+      if(!userId || !fullName || !['Supervisor','Guru'].includes(role) || password.length<8) return showToast('Periksa kembali isian wajib. Password minimal 8 karakter.', 'error');
+      const submit=form.querySelector('button[type="submit"]'); submit.disabled=true; submit.textContent='Menyimpan...';
       try {
         const { data: sess } = await sb.auth.getSession();
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-user`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${sess.session.access_token}`,
-            "apikey": SUPABASE_ANON_KEY
-          },
-          body: JSON.stringify({ action: "create", user_id: userId, full_name: fullName, role, password, nip, subject })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Gagal membuat akun.");
-        await loadProfiles();
-        saveState();
-        renderApp();
-        showToast(`Akun ${userId} berhasil dibuat dan disimpan ke Supabase.`);
-      } catch (err) {
-        console.error(err); showToast("Gagal membuat pengguna: " + err.message, "error");
-      }
+        if(!sess.session) throw new Error('Sesi admin tidak ditemukan. Silakan login kembali.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-user`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${sess.session.access_token}`,'apikey':SUPABASE_ANON_KEY}, body:JSON.stringify({action:'create',user_id:userId,full_name:fullName,role,password,nip,subject:role==='Guru'?subject:''}) });
+        const result=await response.json(); if(!response.ok) throw new Error(result.error||'Gagal membuat akun.');
+        await loadProfiles(); saveState(); document.getElementById('createUserFormModal')?.remove(); renderApp(); showToast(`Akun ${userId} berhasil dibuat dan disimpan ke Supabase.`);
+      } catch(err) { console.error(err); showToast('Gagal membuat pengguna: '+err.message,'error'); submit.disabled=false; submit.textContent='Buat Akun'; }
     }
 
     async function resetPassword(userId) {
@@ -1753,4 +1804,3 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
 
 </body>
 </html>
-```
