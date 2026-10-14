@@ -1202,7 +1202,10 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
     // Jangan pernah menaruh service_role/secret key di HTML.
     const SUPABASE_URL = "https://zbdksbtptyecyaoqsrse.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_gwA0ueJ42HnZCnGoDW0aAA_KIjroagU";
-    const LOGIN_EMAIL_DOMAIN = "supervismada@gmail.com";
+    const LOGIN_EMAIL_DOMAIN = "auth.maabudarrin.sch.id";
+    // Akun admin yang sudah ada di Supabase Auth memakai email asli ini.
+    const ADMIN_LOGIN_ID = "admin";
+    const ADMIN_AUTH_EMAIL = "supervismada@gmail.com";
     let sb = null;
     let supabaseReady = false;
     let originalSaveState = saveState;
@@ -1247,8 +1250,12 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       const password = document.getElementById("loginPassword").value;
       btn.disabled = true; btn.textContent = "Memeriksa akun...";
       try {
+        const normalizedLoginId = loginId.toLowerCase();
+        const loginEmail = normalizedLoginId === ADMIN_LOGIN_ID
+          ? ADMIN_AUTH_EMAIL
+          : `${normalizedLoginId}@${LOGIN_EMAIL_DOMAIN}`;
         const { data, error } = await sb.auth.signInWithPassword({
-          email: `${loginId.toLowerCase()}@${LOGIN_EMAIL_DOMAIN}`,
+          email: loginEmail,
           password
         });
         if (error) throw error;
@@ -1278,11 +1285,21 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
     }
 
     function profileToAppUser(p) {
+      // Database memakai role lowercase (administrator/supervisor/guru),
+      // sedangkan antarmuka lama menggunakan label kapital.
+      const roleMap = {
+        administrator: "Admin",
+        admin: "Admin",
+        supervisor: "Supervisor",
+        guru: "Guru",
+        tendik: "Tendik"
+      };
+      const normalizedRole = String(p.role || "").toLowerCase();
       return {
         id: p.user_id,
         authId: p.id,
         name: p.full_name,
-        role: p.role,
+        role: roleMap[normalizedRole] || p.role,
         nip: p.nip || "",
         subject: p.subject || "",
         active: p.active
@@ -1349,8 +1366,8 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       if (!userId) return;
       const fullName = prompt("Nama lengkap pengguna:");
       if (!fullName) return;
-      const role = prompt("Peran: Supervisor / Guru / Tendik", "Guru");
-      if (!["Supervisor","Guru","Tendik"].includes(role)) return showToast("Peran harus Supervisor, Guru, atau Tendik.", "error");
+      const role = prompt("Peran: Supervisor / Guru", "Guru");
+      if (!["Supervisor","Guru"].includes(role)) return showToast("Peran harus Supervisor atau Guru.", "error");
       const password = prompt("Password awal (minimal 8 karakter):");
       if (!password || password.length < 8) return showToast("Password minimal 8 karakter.", "error");
       const nip = prompt("NIP (boleh dikosongkan):", "") || "";
