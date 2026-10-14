@@ -156,6 +156,7 @@
         { id: 'MAP-02', supervisorId: 'supervisor2', supervisorName: 'Hj. Siti Mariyam, S.Ag., M.S.I.', teacherIds: [] }
       ],
       classes: ['X-A (IPA)', 'X-B (IPS)', 'XI-1 (Merdeka)', 'XI-2 (Merdeka)', 'XII-IPA 1', 'XII-IPS 1'],
+      subjects: ['Matematika','Bahasa Indonesia','Bahasa Inggris','Biologi / IPA','Fisika','Kimia','Sejarah','Informatika','Akidah Akhlak',"Al-Qur'an Hadis",'Fikih','SKI','Bahasa Arab'],
       schedules: [
         { id: 'SCH-01', teacherId: 'guru1', teacherName: 'Siti Nurjanah, S.Pd.', supervisorName: 'Drs. H. Ahmad Fauzi, M.Pd.', class: 'XI-1 (Merdeka)', subject: 'Biologi / IPA', date: '2026-10-15', stage: 'Observasi Kelas', status: 'Selesai' },
         { id: 'SCH-02', teacherId: 'guru2', teacherName: 'M. Syafi\'i, S.T.', supervisorName: 'Drs. H. Ahmad Fauzi, M.Pd.', class: 'X-A (IPA)', subject: 'Informatika', date: '2026-10-22', stage: 'Pra-Observasi', status: 'Terjadwal' }
@@ -371,7 +372,7 @@
       return (appState.documents || []).filter(d => isOwnTeacherRecord(d));
     }
     function allowedMenus() {
-      if (isAdmin()) return ["dashboard","users","mapping","schedules","documents","supervise_academic","supervise_managerial","rtl","reports","import_excel","settings"];
+      if (isAdmin()) return ["dashboard","master_data","users","mapping","schedules","documents","supervise_academic","supervise_managerial","rtl","reports","import_excel","settings"];
       if (isSupervisor()) return ["dashboard","schedules","documents","supervise_academic","supervise_managerial","rtl","reports"];
       if (isTeacher()) return ["dashboard","schedules","documents","supervise_academic","rtl","reports"];
       return [];
@@ -426,6 +427,10 @@
             </button>
 
             ${user.role === 'Admin' ? `
+              <button onclick="navigate('master_data')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition ${appState.activeMenu === 'master_data' ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-900/40' : 'hover:bg-slate-800 hover:text-slate-100'}">
+                <i class="fa-solid fa-database text-base w-5"></i>
+                ${!isCollapsed ? '<span>Pengaturan Data Master</span>' : ''}
+              </button>
               <button onclick="navigate('users')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition ${appState.activeMenu === 'users' ? 'bg-brand-600 text-white font-semibold shadow-lg shadow-brand-900/40' : 'hover:bg-slate-800 hover:text-slate-100'}">
                 <i class="fa-solid fa-users-gear text-base w-5"></i>
                 ${!isCollapsed ? '<span>Manajemen Pengguna</span>' : ''}
@@ -549,6 +554,7 @@
     function getMenuTitle(menu) {
       const titles = {
         'dashboard': 'Dashboard Supervisi V2',
+        'master_data': 'Pengaturan Data Master Terintegrasi',
         'users': 'Manajemen Pengguna & Reset Password',
         'mapping': 'Pemetaan Supervisor ke Guru Binaan',
         'import_excel': 'Import Data Excel',
@@ -567,6 +573,7 @@
       if (!allowedMenus().includes(appState.activeMenu)) appState.activeMenu = "dashboard";
       switch(appState.activeMenu) {
         case 'dashboard': return renderDashboardView();
+        case 'master_data': return renderMasterDataView();
         case 'users': return renderUsersView();
         case 'mapping': return renderMappingView();
         case 'import_excel': return renderExcelImportView();
@@ -688,6 +695,39 @@
       });
     }
 
+    function renderMasterDataView() {
+      if (!isAdmin()) return '<div class="p-6 rounded-xl bg-red-50 text-red-700">Akses ditolak. Menu ini hanya untuk administrator.</div>';
+      const teachers=(appState.users||[]).filter(u=>u.role==='Guru').length;
+      const supervisors=(appState.users||[]).filter(u=>u.role==='Supervisor').length;
+      const mapped=new Set((appState.mappings||[]).flatMap(m=>(m.teacherIds||[]).map(String))).size;
+      return `
+        <div class="space-y-6">
+          <div class="rounded-2xl bg-gradient-to-r from-slate-900 to-emerald-900 p-6 text-white"><h3 class="text-xl font-extrabold">Pusat Pengaturan Data Master</h3><p class="text-sm text-slate-200 mt-2">Kelola akun, peran, kelas, mata pelajaran, penugasan supervisor, tahun ajaran, dan data yang digunakan bersama oleh jadwal serta laporan.</p></div>
+          <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
+            <div class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Guru aktif</p><p class="text-2xl font-extrabold text-slate-800">${teachers}</p><button onclick="navigate('users')" class="mt-2 text-xs font-bold text-blue-700">Kelola akun →</button></div>
+            <div class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Supervisor aktif</p><p class="text-2xl font-extrabold text-slate-800">${supervisors}</p><button onclick="navigate('users')" class="mt-2 text-xs font-bold text-blue-700">Kelola akun →</button></div>
+            <div class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Kelas terdaftar</p><p class="text-2xl font-extrabold text-slate-800">${(appState.classes||[]).length}</p><button onclick="openBulkDataEditor('classes')" class="mt-2 text-xs font-bold text-blue-700">Atur kelas →</button></div>
+            <div class="rounded-xl border bg-white p-4"><p class="text-xs text-slate-500">Guru dalam pemetaan</p><p class="text-2xl font-extrabold text-slate-800">${mapped}</p><button onclick="navigate('mapping')" class="mt-2 text-xs font-bold text-blue-700">Atur pemetaan →</button></div>
+          </div>
+          <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div class="rounded-2xl border bg-white p-5"><div class="flex gap-3 items-center"><span class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center"><i class="fa-solid fa-users-gear"></i></span><div><h4 class="font-bold text-slate-800">Guru & Supervisor</h4><p class="text-xs text-slate-500">Akun login, ID, NIP, mapel, dan peran</p></div></div><p class="text-xs text-slate-600 mt-3">Akun dibuat melalui Supabase Auth agar ID login, profil, dan hak akses tetap terhubung.</p><button onclick="navigate('users')" class="mt-4 w-full rounded-lg bg-blue-600 text-white p-2.5 text-xs font-bold">Buka Manajemen Pengguna</button></div>
+            <div class="rounded-2xl border bg-white p-5"><div class="flex gap-3 items-center"><span class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center"><i class="fa-solid fa-school"></i></span><div><h4 class="font-bold text-slate-800">Kelas</h4><p class="text-xs text-slate-500">Sumber pilihan untuk jadwal dan supervisi</p></div></div><p class="text-xs text-slate-600 mt-3">Tambah, ubah, atau hapus banyak kelas sekaligus dalam satu tabel.</p><button onclick="openBulkDataEditor('classes')" class="mt-4 w-full rounded-lg bg-emerald-600 text-white p-2.5 text-xs font-bold">Kelola Kelas (Form Massal)</button></div>
+            <div class="rounded-2xl border bg-white p-5"><div class="flex gap-3 items-center"><span class="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center"><i class="fa-solid fa-book"></i></span><div><h4 class="font-bold text-slate-800">Mata Pelajaran</h4><p class="text-xs text-slate-500">Daftar mapel bersama untuk data supervisi</p></div></div><p class="text-xs text-slate-600 mt-3">Kelola daftar mapel yang dipakai ketika mengisi jadwal atau hasil supervisi.</p><button onclick="openBulkDataEditor('subjects')" class="mt-4 w-full rounded-lg bg-violet-600 text-white p-2.5 text-xs font-bold">Kelola Mata Pelajaran</button></div>
+            <div class="rounded-2xl border bg-white p-5"><div class="flex gap-3 items-center"><span class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center"><i class="fa-solid fa-sitemap"></i></span><div><h4 class="font-bold text-slate-800">Penugasan Supervisor</h4><p class="text-xs text-slate-500">Hubungkan supervisor dengan guru binaan</p></div></div><p class="text-xs text-slate-600 mt-3">Pilih ID pengguna yang sudah terdaftar. Nama supervisor dan guru dicocokkan dari profil pengguna.</p><button onclick="navigate('mapping')" class="mt-4 w-full rounded-lg bg-amber-500 text-white p-2.5 text-xs font-bold">Kelola Pemetaan</button></div>
+            <div class="rounded-2xl border bg-white p-5"><div class="flex gap-3 items-center"><span class="w-10 h-10 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center"><i class="fa-solid fa-calendar-days"></i></span><div><h4 class="font-bold text-slate-800">Jadwal Supervisi</h4><p class="text-xs text-slate-500">Menggunakan data guru, supervisor, kelas, dan mapel</p></div></div><p class="text-xs text-slate-600 mt-3">Setelah master diperbarui, atur jadwal dan pastikan setiap penugasan mengacu pada data master yang benar.</p><button onclick="navigate('schedules')" class="mt-4 w-full rounded-lg bg-cyan-700 text-white p-2.5 text-xs font-bold">Buka Jadwal</button></div>
+            <div class="rounded-2xl border bg-white p-5"><div class="flex gap-3 items-center"><span class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center"><i class="fa-solid fa-file-import"></i></span><div><h4 class="font-bold text-slate-800">Import / Backup Data</h4><p class="text-xs text-slate-500">Impor daftar kelas, mapel, jadwal, dan pemetaan</p></div></div><p class="text-xs text-slate-600 mt-3">Import akun tidak membuat pengguna Auth secara otomatis; akun harus dibuat lewat Manajemen Pengguna.</p><button onclick="navigate('import_excel')" class="mt-4 w-full rounded-lg bg-rose-600 text-white p-2.5 text-xs font-bold">Buka Import Excel</button></div>
+          </div>
+          <form onsubmit="saveActiveYear(event)" class="rounded-2xl border bg-white p-5 flex flex-col md:flex-row md:items-end gap-3"><div class="flex-1"><label class="block text-xs font-bold mb-2 text-slate-700">Tahun Ajaran Aktif</label><input id="masterActiveYear" required value="${escHtml(appState.activeYear||'2026/2027')}" class="w-full rounded-xl border p-3 text-sm text-slate-800" placeholder="2026/2027"><p class="text-[11px] text-slate-500 mt-1">Tahun ajaran ini menjadi acuan dashboard dan pengelolaan supervisi.</p></div><button class="rounded-xl bg-slate-900 text-white px-5 py-3 text-xs font-bold">Simpan Tahun Ajaran</button></form>
+          <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900"><b>Integrasi penting:</b> buat akun Guru/Supervisor terlebih dahulu, lalu petakan berdasarkan ID login. Jadwal, dokumen, dan hasil supervisi harus memakai nama/ID yang sesuai. Penyimpanan data utama masih memakai payload JSON di Supabase; perlindungan data yang kuat tetap membutuhkan kebijakan RLS database.</div>
+        </div>`;
+    }
+    function saveActiveYear(event) {
+      event.preventDefault(); if(!isAdmin()) return showToast('Hanya Admin yang dapat mengubah tahun ajaran.','error');
+      const value=String(document.getElementById('masterActiveYear')?.value||'').trim();
+      if(!/^\d{4}\s*\/\s*\d{4}$/.test(value)) return showToast('Format tahun ajaran harus seperti 2026/2027.','error');
+      appState.activeYear=value.replace(/\s/g,''); saveState(); addAuditLog('Mengubah tahun ajaran aktif menjadi '+appState.activeYear); renderApp(); showToast('Tahun ajaran aktif berhasil diperbarui.');
+    }
+
     function renderUsersView() {
       return `
         <div class="space-y-6">
@@ -717,7 +757,8 @@
                     <td class="p-4 text-slate-500">${u.nip}</td>
                     <td class="p-4"><span class="px-2.5 py-1 rounded-md text-[10px] font-bold ${u.role === 'Admin' ? 'bg-purple-100 text-purple-800' : u.role === 'Supervisor' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'}">${u.role}</span></td>
                     <td class="p-4 text-center space-x-2">
-                      <button onclick="resetPassword('${u.id}')" class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 rounded-lg font-bold border border-amber-200 text-[10px]" title="Reset Password">
+                      <button onclick="editUserProfile('${escHtml(u.authId||'')}')" class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold border border-blue-200 text-[10px]" title="Ubah profil"><i class="fa-solid fa-pen mr-1"></i> Ubah Profil</button>
+                      <button onclick="resetPassword('${escHtml(u.id)}')" class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 rounded-lg font-bold border border-amber-200 text-[10px]" title="Reset Password">
                         <i class="fa-solid fa-key mr-1"></i> Reset Pass
                       </button>
                     </td>
@@ -1349,9 +1390,10 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       academicResults: [['teacherName','Nama Guru'],['supervisorName','Nama Supervisor'],['date','Tanggal (YYYY-MM-DD)'],['class','Kelas'],['subject','Mata Pelajaran'],['percentage','Nilai %'],['grade','Predikat'],['notes','Catatan'],['recommendation','Rekomendasi'],['rtl','Tindak Lanjut']],
       managerialResults: [['unitName','Unit'],['staffName','Nama Tendik'],['supervisorName','Nama Supervisor'],['date','Tanggal (YYYY-MM-DD)'],['percentage','Nilai %'],['grade','Predikat'],['notes','Catatan'],['recommendation','Rekomendasi']],
       mappings: [['supervisorId','ID Supervisor'],['supervisorName','Nama Supervisor'],['teacherIds','ID Guru (pisahkan koma)']],
-      classes: [['value','Nama Kelas']]
+      classes: [['value','Nama Kelas']],
+      subjects: [['value','Nama Mata Pelajaran']]
     };
-    const BULK_LABELS = {schedules:'Jadwal Supervisi',documents:'Dokumen Guru',academicResults:'Hasil Supervisi Akademik',managerialResults:'Hasil Supervisi Manajerial',mappings:'Pemetaan Supervisor-Guru',classes:'Daftar Kelas'};
+    const BULK_LABELS = {schedules:'Jadwal Supervisi',documents:'Dokumen Guru',academicResults:'Hasil Supervisi Akademik',managerialResults:'Hasil Supervisi Manajerial',mappings:'Pemetaan Supervisor-Guru',classes:'Daftar Kelas',subjects:'Daftar Mata Pelajaran'};
     function dataActionBar(type) {
       return `<div class="flex flex-wrap gap-2"><button onclick="openBulkDataEditor('${type}')" class="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold"><i class="fa-solid fa-table-cells-large mr-1"></i>Tambah/Ubah Data Manual (Form Massal)</button><button onclick="openImportFor('${type}')" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"><i class="fa-solid fa-file-excel mr-1"></i>Import Excel</button></div>`;
     }
@@ -1368,26 +1410,29 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       if(type==='managerialResults') return isAdmin() ? (appState.managerialResults||[]) : (appState.managerialResults||[]).filter(r=>String(r.supervisorName||'')===currentUserName());
       if(type==='mappings') return appState.mappings||[];
       if(type==='classes') return appState.classes||[];
+      if(type==='subjects') return appState.subjects||[];
       return [];
     }
     function openBulkDataEditor(type, focusId='') {
       if (!BULK_FIELDS[type]) return showToast('Jenis data ini belum mendukung formulir massal.', 'error');
-      if(type==='mappings' && !isAdmin()) return showToast('Pemetaan hanya dapat diubah Admin.', 'error');
+      if(['mappings','classes','subjects'].includes(type) && !isAdmin()) return showToast('Data master hanya dapat diubah Admin.', 'error');
       if(type==='schedules' && !(isAdmin()||isSupervisor())) return showToast('Akses ditolak.', 'error');
       if(['documents','academicResults','managerialResults'].includes(type) && !(isAdmin()||isSupervisor())) return showToast('Akses ditolak.', 'error');
-      const rows=bulkVisibleRows(type).map((r,i)=> type==='classes' ? ({id:`CLASS-${i+1}`,value:r}) : ({...r}));
+      const rows=bulkVisibleRows(type).map((r,i)=> ['classes','subjects'].includes(type) ? ({id:`${type==='classes'?'CLASS':'SUBJECT'}-${i+1}`,value:r}) : ({...r}));
       if(focusId && !rows.some(r=>String(r.id)===String(focusId))) return showToast('Data tidak ditemukan atau tidak masuk cakupan akses Anda.', 'error');
       const fields=BULK_FIELDS[type];
-      const fieldInput=(row,idx,key,label)=>`<td class="p-1 border-b border-slate-200 align-top"><input data-bulk-index="${idx}" data-bulk-key="${key}" aria-label="${label}" class="w-full min-w-32 border border-slate-300 rounded-md px-2 py-2 text-xs text-slate-800 bg-white" value="${escHtml(key==='teacherIds' ? (Array.isArray(row[key])?row[key].join(','):row[key]||'') : (row[key]??''))}" placeholder="${escHtml(label)}"></td>`;
+      const listIdFor=(key)=>({teacherName:'bulkTeacherOptions',supervisorName:'bulkSupervisorOptions',supervisorId:'bulkSupervisorIdOptions',class:'bulkClassOptions',subject:'bulkSubjectOptions'})[key]||'';
+      const fieldInput=(row,idx,key,label)=>{ const listId=listIdFor(key); return `<td class="p-1 border-b border-slate-200 align-top"><input data-bulk-index="${idx}" data-bulk-key="${key}" ${listId?`list="${listId}"`:''} aria-label="${label}" class="w-full min-w-32 border border-slate-300 rounded-md px-2 py-2 text-xs text-slate-800 bg-white" value="${escHtml(key==='teacherIds' ? (Array.isArray(row[key])?row[key].join(','):row[key]||'') : (row[key]??''))}" placeholder="${escHtml(label)}"></td>`; };
       const rowsHtml=rows.map((r,i)=>`<tr data-bulk-row="${i}"><td class="p-2 border-b text-xs font-mono">${escHtml(r.id||'BARU')}</td>${fields.map(([key,label])=>fieldInput(r,i,key,label)).join('')}<td class="p-2 border-b"><button onclick="removeBulkRow(this)" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs">Hapus</button></td></tr>`).join('');
       const modal=document.createElement('div'); modal.id='bulkDataModal'; modal.className='fixed inset-0 z-[100] bg-slate-950/70 p-3 md:p-8 flex items-center justify-center';
       modal.innerHTML=`<section class="bg-white rounded-2xl shadow-2xl w-full max-w-[96vw] max-h-[92vh] flex flex-col overflow-hidden"><header class="p-5 border-b flex items-start justify-between gap-3"><div><h3 class="font-bold text-lg text-slate-900">Form Massal: ${BULK_LABELS[type]}</h3><p class="text-xs text-slate-500 mt-1">Isi atau ubah banyak baris sekaligus, lalu simpan sekali. Kolom ID otomatis untuk data baru.</p></div><button onclick="closeBulkDataEditor()" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700">Tutup</button></header><div class="p-4 flex flex-wrap gap-2 border-b"><button onclick="addBulkRow()" class="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>Tambah Baris</button><span class="text-xs text-slate-500 self-center">${rows.length} baris saat ini • kolom dapat digeser ke samping</span></div><div class="overflow-auto flex-1"><table class="min-w-full border-collapse"><thead class="sticky top-0 bg-slate-100"><tr><th class="p-2 text-left text-xs">ID</th>${fields.map(([k,l])=>`<th class="p-2 text-left text-xs whitespace-nowrap">${escHtml(l)}</th>`).join('')}<th class="p-2 text-left text-xs">Aksi</th></tr></thead><tbody id="bulkDataRows">${rowsHtml}</tbody></table></div><footer class="p-4 border-t flex justify-between items-center gap-3"><p class="text-[11px] text-slate-500">Simpan akan menerapkan seluruh perubahan dalam formulir ini.</p><div class="flex gap-2"><button onclick="closeBulkDataEditor()" class="px-4 py-2 rounded-lg border text-xs font-bold">Batal</button><button onclick="saveBulkDataEditor('${type}')" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i>Simpan Semua</button></div></footer></section>`;
+      modal.innerHTML += `<datalist id="bulkTeacherOptions">${(appState.users||[]).filter(u=>u.role==='Guru').map(u=>`<option value="${escHtml(u.name)}">${escHtml(u.id)}</option>`).join('')}</datalist><datalist id="bulkSupervisorOptions">${(appState.users||[]).filter(u=>u.role==='Supervisor').map(u=>`<option value="${escHtml(u.name)}">${escHtml(u.id)}</option>`).join('')}</datalist><datalist id="bulkSupervisorIdOptions">${(appState.users||[]).filter(u=>u.role==='Supervisor').map(u=>`<option value="${escHtml(u.id)}">${escHtml(u.name)}</option>`).join('')}</datalist><datalist id="bulkClassOptions">${(appState.classes||[]).map(v=>`<option value="${escHtml(v)}"></option>`).join('')}</datalist><datalist id="bulkSubjectOptions">${(appState.subjects||[]).map(v=>`<option value="${escHtml(v)}"></option>`).join('')}</datalist>`;
       modal.dataset.type=type; modal.dataset.fields=JSON.stringify(fields); modal.dataset.rows=JSON.stringify(rows); document.body.appendChild(modal);
     }
     function addBulkRow() {
       const modal=document.getElementById('bulkDataModal'); if(!modal) return;
       const type=modal.dataset.type, fields=JSON.parse(modal.dataset.fields), tbody=document.getElementById('bulkDataRows');
-      const idx=`new-${Date.now()}-${Math.random().toString(36).slice(2,6)}`; const row=type==='classes'?{value:''}:{};
+      const idx=`new-${Date.now()}-${Math.random().toString(36).slice(2,6)}`; const row=['classes','subjects'].includes(type)?{value:''}:{};
       const tr=document.createElement('tr'); tr.dataset.bulkRow=String(idx);
       tr.innerHTML=`<td class="p-2 border-b text-xs font-mono">BARU</td>${fields.map(([key,label])=>`<td class="p-1 border-b align-top"><input data-bulk-index="${idx}" data-bulk-key="${key}" aria-label="${label}" class="w-full min-w-32 border border-slate-300 rounded-md px-2 py-2 text-xs text-slate-800 bg-white" value="" placeholder="${escHtml(label)}"></td>`).join('')}<td class="p-2 border-b"><button onclick="removeBulkRow(this)" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs">Hapus</button></td>`; tbody.appendChild(tr);
     }
@@ -1402,12 +1447,20 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         const inputs=[...tr.querySelectorAll('input[data-bulk-key]')], obj={}; inputs.forEach(inp=>obj[inp.dataset.bulkKey]=inp.value.trim());
         if(!Object.values(obj).some(Boolean)) continue;
         const rowIndex=Number(tr.dataset.bulkRow); const old=Number.isInteger(rowIndex) ? oldById.get(String(original[rowIndex]?.id||'')) : undefined;
-        if(type==='classes') { updated.push(obj.value); continue; }
+        if(['classes','subjects'].includes(type)) { updated.push(obj.value); continue; }
         const id=old?.id || `${type.toUpperCase()}-${Date.now()}-${updated.length+1}`;
         const row={...(old||{}),...obj,id};
+        if(type==='schedules') {
+          const teacher=(appState.users||[]).find(u=>u.role==='Guru' && (String(u.name).toLowerCase()===String(row.teacherName||'').toLowerCase() || String(u.id).toLowerCase()===String(row.teacherName||'').toLowerCase()));
+          if(teacher) { row.teacherId=teacher.id; row.teacherName=teacher.name; }
+          const supervisor=(appState.users||[]).find(u=>u.role==='Supervisor' && (String(u.name).toLowerCase()===String(row.supervisorName||'').toLowerCase() || String(u.id).toLowerCase()===String(row.supervisorName||'').toLowerCase()));
+          if(supervisor) { row.supervisorId=supervisor.id; row.supervisorName=supervisor.name; }
+          if(row.class && (appState.classes||[]).length && !(appState.classes||[]).some(c=>String(c).toLowerCase()===String(row.class).toLowerCase())) return showToast(`Kelas tidak terdaftar di Data Master: ${row.class}`,'error');
+          if(row.subject && (appState.subjects||[]).length && !(appState.subjects||[]).some(c=>String(c).toLowerCase()===String(row.subject).toLowerCase())) return showToast(`Mata pelajaran tidak terdaftar di Data Master: ${row.subject}`,'error');
+        }
         if(type==='mappings') {
           const supervisor=(appState.users||[]).find(u=>String(u.id).toLowerCase()===String(row.supervisorId||'').toLowerCase());
-          if(row.supervisorId && !supervisor) return showToast(`ID Supervisor tidak ditemukan: ${row.supervisorId}`,'error');
+          if(row.supervisorId && (!supervisor || supervisor.role!=='Supervisor')) return showToast(`ID Supervisor tidak ditemukan atau bukan role Supervisor: ${row.supervisorId}`,'error');
           row.supervisorName=supervisor?.name || row.supervisorName || '';
           const raw=String(row.teacherIds||''); row.teacherIds=[...new Set(raw.split(/[,;\n]/).map(x=>x.trim()).filter(Boolean))];
           const valid=new Set((appState.users||[]).filter(u=>u.role==='Guru').map(u=>String(u.id).toLowerCase()));
@@ -1418,7 +1471,8 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         if(type==='managerialResults') { row.percentage=Number(String(row.percentage||0).replace('%','').replace(',','.'))||0; row.scores=old?.scores||{}; }
         updated.push(row);
       }
-      if(type==='classes') appState.classes=[...new Set(updated.filter(Boolean))];
+      if(type==='classes') appState.classes=[...new Set(updated.map(x=>String(x||'').trim()).filter(Boolean))];
+      else if(type==='subjects') appState.subjects=[...new Set(updated.map(x=>String(x||'').trim()).filter(Boolean))];
       else {
         const visibleIds=new Set(original.map(r=>String(r.id||'')));
         const base=(appState[type]||[]).filter(r=>!visibleIds.has(String(r.id||'')));
@@ -1434,7 +1488,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
           <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
             <div class="flex items-start gap-4"><div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl"><i class="fa-solid fa-file-excel"></i></div><div><h3 class="font-bold text-lg text-slate-800 dark:text-white">Import Data dari Excel</h3><p class="text-sm text-slate-500 mt-1">Unggah .xlsx, .xls, atau .csv untuk memasukkan data ke aplikasi. Periksa pratinjau sebelum menerapkan perubahan.</p></div></div>
             <div class="grid md:grid-cols-2 gap-4 mt-6">
-              <div><label class="block text-xs font-bold mb-2">Jenis data yang diimpor</label><select id="excelImportType" class="w-full border border-slate-300 rounded-xl p-3 text-sm bg-white text-slate-800"><option value="schedules">Jadwal Supervisi</option><option value="documents">Dokumen Guru</option><option value="academicResults">Hasil Supervisi Akademik</option><option value="managerialResults">Hasil Supervisi Manajerial</option><option value="classes">Daftar Kelas</option><option value="mappings">Pemetaan Supervisor-Guru</option></select></div>
+              <div><label class="block text-xs font-bold mb-2">Jenis data yang diimpor</label><select id="excelImportType" class="w-full border border-slate-300 rounded-xl p-3 text-sm bg-white text-slate-800"><option value="schedules">Jadwal Supervisi</option><option value="documents">Dokumen Guru</option><option value="academicResults">Hasil Supervisi Akademik</option><option value="managerialResults">Hasil Supervisi Manajerial</option><option value="classes">Daftar Kelas</option><option value="subjects">Daftar Mata Pelajaran</option><option value="mappings">Pemetaan Supervisor-Guru</option></select></div>
               <div><label class="block text-xs font-bold mb-2">Cara memasukkan data</label><select id="excelImportMode" class="w-full border border-slate-300 rounded-xl p-3 text-sm bg-white text-slate-800"><option value="append">Tambahkan ke data yang ada</option><option value="replace">Ganti seluruh data pada jenis terpilih</option></select><p class="text-[11px] text-amber-700 mt-1">Mode ganti akan menghapus data lokal pada kategori terpilih sebelum diganti.</p></div>
             </div>
             <div class="mt-5"><label class="block text-xs font-bold mb-2">Pilih file Excel / CSV</label><input id="excelImportFile" type="file" accept=".xlsx,.xls,.csv" onchange="previewExcelImport(event)" class="block w-full text-sm border border-slate-300 rounded-xl p-3 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-2 file:text-white"/><p class="text-[11px] text-slate-500 mt-2">Baris pertama wajib berisi judul kolom. Kolom yang tidak dikenal akan diabaikan.</p></div>
@@ -1470,6 +1524,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       if(type==='academicResults') { const pct=Number(excelText(excelGet(row,'percentage','Persentase','Nilai')) .replace('%','').replace(',','.'))||0; return { id, teacherName:excelText(excelGet(row,'teacherName','Guru','Nama Guru','Nama')), supervisorName:excelText(excelGet(row,'supervisorName','Supervisor','Nama Supervisor')), date:excelDate(excelGet(row,'date','Tanggal')), class:excelText(excelGet(row,'class','Kelas')), subject:excelText(excelGet(row,'subject','Mapel','Mata Pelajaran')), scores:{}, totalScore:Number(excelGet(row,'totalScore','Total Skor'))||0, maxScore:Number(excelGet(row,'maxScore','Skor Maksimal'))||0, percentage:pct, grade:excelText(excelGet(row,'grade','Predikat'))||'Belum ditentukan', notes:excelText(excelGet(row,'notes','Catatan')), recommendation:excelText(excelGet(row,'recommendation','Rekomendasi')), rtl:excelText(excelGet(row,'rtl','RTL','Tindak Lanjut')), signatures:{supervisor:false,teacher:false} }; }
       if(type==='managerialResults') { const pct=Number(excelText(excelGet(row,'percentage','Persentase','Nilai')).replace('%','').replace(',','.'))||0; return { id, unitName:excelText(excelGet(row,'unitName','Unit','Nama Unit')), staffName:excelText(excelGet(row,'staffName','Nama Tendik','Nama Staf')), supervisorName:excelText(excelGet(row,'supervisorName','Supervisor','Nama Supervisor')), date:excelDate(excelGet(row,'date','Tanggal')), scores:{}, totalScore:Number(excelGet(row,'totalScore','Total Skor'))||0, maxScore:Number(excelGet(row,'maxScore','Skor Maksimal'))||0, percentage:pct, grade:excelText(excelGet(row,'grade','Predikat'))||'Belum ditentukan', notes:excelText(excelGet(row,'notes','Catatan')), recommendation:excelText(excelGet(row,'recommendation','Rekomendasi')) }; }
       if(type==='classes') return excelText(excelGet(row,'class','Kelas','Nama Kelas','name','Nama'));
+      if(type==='subjects') return excelText(excelGet(row,'subject','Mapel','Mata Pelajaran','Nama Mapel','name','Nama')); 
       if(type==='mappings') { const ids=excelText(excelGet(row,'teacherIds','ID Guru','Daftar ID Guru','teacherId')).split(/[;,\n]/).map(x=>x.trim()).filter(Boolean); return { id, supervisorId:excelText(excelGet(row,'supervisorId','ID Supervisor')), supervisorName:excelText(excelGet(row,'supervisorName','Supervisor','Nama Supervisor')), teacherIds:ids }; }
       return null;
     }
@@ -1482,7 +1537,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         const raw=XLSX.utils.sheet_to_json(ws,{defval:'',raw:true});
         if(!raw.length) throw new Error('File tidak berisi baris data.');
         const type=document.getElementById('excelImportType').value;
-        excelImportRows=raw.map((r,i)=>normalizeExcelRow(r,type,i)).filter(r=>type==='classes'?Boolean(r):r && Object.values(r).some(v=>v!=='' && v!==null && v!==undefined));
+        excelImportRows=raw.map((r,i)=>normalizeExcelRow(r,type,i)).filter(r=>['classes','subjects'].includes(type)?Boolean(r):r && Object.values(r).some(v=>v!=='' && v!==null && v!==undefined));
         excelImportFileName=file.name;
         const target=document.getElementById('excelImportPreview');
         const sample=excelImportRows.slice(0,6);
@@ -1494,14 +1549,36 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       if(!isAdmin()) return showToast('Hanya administrator yang boleh mengimpor data.','error');
       if(!excelImportRows.length) return showToast('Pilih file dan periksa pratinjau terlebih dahulu.','error');
       const type=document.getElementById('excelImportType').value, mode=document.getElementById('excelImportMode').value;
-      const labels={schedules:'jadwal',documents:'dokumen',academicResults:'hasil supervisi akademik',managerialResults:'hasil supervisi manajerial',classes:'kelas',mappings:'pemetaan supervisor-guru'};
+      const labels={schedules:'jadwal',documents:'dokumen',academicResults:'hasil supervisi akademik',managerialResults:'hasil supervisi manajerial',classes:'kelas',subjects:'mata pelajaran',mappings:'pemetaan supervisor-guru'};
       if(!confirm(`Impor ${excelImportRows.length} baris dari ${excelImportFileName} ke ${labels[type]}?${mode==='replace'?' Data '+labels[type]+' yang ada akan diganti.':' Data akan ditambahkan.'}`)) return;
-      if(type==='classes') {
-        const old=mode==='replace'?[]:(appState.classes||[]); appState.classes=[...new Set([...old,...excelImportRows.map(excelText).filter(Boolean)])];
+      if(['classes','subjects'].includes(type)) {
+        const key=type; const old=mode==='replace'?[]:(appState[key]||[]); appState[key]=[...new Set([...old,...excelImportRows.map(excelText).filter(Boolean)])];
       } else {
         const old=mode==='replace'?[]:(appState[type]||[]);
         const seen=new Set(old.map(x=>String(x.id||'')));
         const incoming=excelImportRows.map((r,i)=>({...r, id:r.id||`${type}-${Date.now()}-${i}`}));
+        if(type==='mappings') {
+          for(const row of incoming) {
+            const sup=(appState.users||[]).find(u=>u.role==='Supervisor' && (String(u.id).toLowerCase()===String(row.supervisorId||'').toLowerCase() || String(u.name).toLowerCase()===String(row.supervisorName||'').toLowerCase()));
+            if(!sup) return showToast(`Supervisor tidak ditemukan di Data Master: ${row.supervisorId||row.supervisorName||'(kosong)'}`,'error');
+            row.supervisorId=sup.id; row.supervisorName=sup.name;
+            row.teacherIds=[...new Set((Array.isArray(row.teacherIds)?row.teacherIds:String(row.teacherIds||'').split(/[,;\n]/)).map(x=>String(x).trim()).filter(Boolean))];
+            const validTeachers=(appState.users||[]).filter(u=>u.role==='Guru');
+            const resolved=[]; for(const ref of row.teacherIds) { const t=validTeachers.find(u=>String(u.id).toLowerCase()===ref.toLowerCase()||String(u.name).toLowerCase()===ref.toLowerCase()); if(!t) return showToast(`Guru tidak ditemukan di Data Master: ${ref}`,'error'); resolved.push(t.id); } row.teacherIds=[...new Set(resolved)];
+          }
+        }
+        if(type==='schedules') {
+          for(const row of incoming) {
+            const teacher=(appState.users||[]).find(u=>u.role==='Guru' && (String(u.id).toLowerCase()===String(row.teacherId||'').toLowerCase() || String(u.name).toLowerCase()===String(row.teacherName||'').toLowerCase()));
+            if(!teacher) return showToast(`Guru jadwal tidak ditemukan di Data Master: ${row.teacherId||row.teacherName||'(kosong)'}`,'error');
+            row.teacherId=teacher.id; row.teacherName=teacher.name;
+            const sup=(appState.users||[]).find(u=>u.role==='Supervisor' && (String(u.id).toLowerCase()===String(row.supervisorId||'').toLowerCase() || String(u.name).toLowerCase()===String(row.supervisorName||'').toLowerCase()));
+            if(!sup) return showToast(`Supervisor jadwal tidak ditemukan di Data Master: ${row.supervisorId||row.supervisorName||'(kosong)'}`,'error');
+            row.supervisorId=sup.id; row.supervisorName=sup.name;
+            if(row.class && (appState.classes||[]).length && !(appState.classes||[]).some(c=>String(c).toLowerCase()===String(row.class).toLowerCase())) return showToast(`Kelas jadwal belum ada di Data Master: ${row.class}`,'error');
+            if(row.subject && (appState.subjects||[]).length && !(appState.subjects||[]).some(c=>String(c).toLowerCase()===String(row.subject).toLowerCase())) return showToast(`Mapel jadwal belum ada di Data Master: ${row.subject}`,'error');
+          }
+        }
         if(mode==='append') {
           // ID yang sama diperbarui agar import ulang tidak membuat duplikat.
           const byId=new Map(old.map(x=>[String(x.id||''),x])); incoming.forEach(x=>byId.set(String(x.id),x)); appState[type]=Array.from(byId.values());
@@ -1520,6 +1597,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         academicResults:[{ID:'RES-ACAD-NEW-01',Guru:'Nama Guru',Supervisor:'Nama Supervisor',Tanggal:'2026-10-20',Kelas:'X-A',Mapel:'Matematika',Persentase:85,Predikat:'Baik (B)',Catatan:'',Rekomendasi:'',RTL:''}],
         managerialResults:[{ID:'RES-MAN-NEW-01',Unit:'Tata Usaha',Nama_Tendik:'Nama Tendik',Supervisor:'Nama Supervisor',Tanggal:'2026-10-20',Persentase:85,Predikat:'Baik (B)',Catatan:'',Rekomendasi:''}],
         classes:[{Kelas:'X-A'},{Kelas:'X-B'}],
+        subjects:[{Mata_Pelajaran:'Matematika'},{Mata_Pelajaran:'Bahasa Indonesia'}],
         mappings:[{ID:'MAP-NEW-01',ID_Supervisor:'supervisor1',Supervisor:'Nama Supervisor',ID_Guru:'guru1,guru2'}]
       };
       const wb=XLSX.utils.book_new(), ws=XLSX.utils.json_to_sheet(templates[type]||templates.schedules); XLSX.utils.book_append_sheet(wb,ws,'Template'); XLSX.writeFile(wb,`Template_Import_${type}.xlsx`);
@@ -1686,7 +1764,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       if (error) throw error;
       if (data && data.payload) {
         const remote = data.payload;
-        const keys = ["activeYear","activeMenu","instrumentsAcademic","instrumentsManagerial","mappings","classes","schedules","documents","academicResults","managerialResults","auditLogs"];
+        const keys = ["activeYear","activeMenu","instrumentsAcademic","instrumentsManagerial","mappings","classes","subjects","schedules","documents","academicResults","managerialResults","auditLogs"];
         keys.forEach(k => { if (remote[k] !== undefined) appState[k] = remote[k]; });
       }
     }
@@ -1696,7 +1774,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       const { data: sessionData } = await sb.auth.getSession();
       if (!sessionData.session) return;
       const payload = {};
-      ["activeYear","activeMenu","instrumentsAcademic","instrumentsManagerial","mappings","classes","schedules","documents","academicResults","managerialResults","auditLogs"].forEach(k => payload[k] = appState[k]);
+      ["activeYear","activeMenu","instrumentsAcademic","instrumentsManagerial","mappings","classes","subjects","schedules","documents","academicResults","managerialResults","auditLogs"].forEach(k => payload[k] = appState[k]);
       const { error } = await sb.from("app_data").upsert({
         data_key: "main",
         payload,
@@ -1747,6 +1825,35 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         const result=await response.json(); if(!response.ok) throw new Error(result.error||'Gagal membuat akun.');
         await loadProfiles(); saveState(); document.getElementById('createUserFormModal')?.remove(); renderApp(); showToast(`Akun ${userId} berhasil dibuat dan disimpan ke Supabase.`);
       } catch(err) { console.error(err); showToast('Gagal membuat pengguna: '+err.message,'error'); submit.disabled=false; submit.textContent='Buat Akun'; }
+    }
+
+    async function editUserProfile(authId) {
+      if(!isAdmin()) return showToast('Hanya Admin yang dapat mengubah profil.','error');
+      const user=(appState.users||[]).find(u=>String(u.authId||'')===String(authId));
+      if(!user) return showToast('Profil tidak ditemukan. Muat ulang daftar pengguna.','error');
+      document.getElementById('editUserProfileModal')?.remove();
+      const modal=document.createElement('div'); modal.id='editUserProfileModal'; modal.className='fixed inset-0 z-[100] bg-slate-950/70 p-4 flex items-center justify-center';
+      modal.innerHTML=`<section class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"><header class="p-5 border-b flex items-center justify-between"><div><h3 class="font-bold text-lg text-slate-900">Ubah Profil Pengguna</h3><p class="text-xs text-slate-500 mt-1">ID login dan role tidak diubah agar relasi data tetap konsisten.</p></div><button type="button" onclick="document.getElementById('editUserProfileModal').remove()" class="px-3 py-2 bg-slate-100 rounded-lg text-sm">Tutup</button></header><form onsubmit="submitUserProfileEdit(event,'${escHtml(user.authId)}')" class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-xs font-bold mb-1">ID Login (tetap)</label><input disabled value="${escHtml(user.id)}" class="w-full border rounded-lg p-3 text-sm bg-slate-100"></div><div><label class="block text-xs font-bold mb-1">Role (tetap)</label><input disabled value="${escHtml(user.role)}" class="w-full border rounded-lg p-3 text-sm bg-slate-100"></div><div class="md:col-span-2"><label class="block text-xs font-bold mb-1">Nama Lengkap *</label><input name="full_name" required value="${escHtml(user.name)}" class="w-full border rounded-lg p-3 text-sm"></div><div><label class="block text-xs font-bold mb-1">NIP</label><input name="nip" value="${escHtml(user.nip||'')}" class="w-full border rounded-lg p-3 text-sm"></div><div><label class="block text-xs font-bold mb-1">Mata Pelajaran</label><input name="subject" list="editSubjectOptions" value="${escHtml(user.subject||'')}" class="w-full border rounded-lg p-3 text-sm"><datalist id="editSubjectOptions">${(appState.subjects||[]).map(x=>`<option value="${escHtml(x)}"></option>`).join('')}</datalist></div><div class="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" onclick="document.getElementById('editUserProfileModal').remove()" class="px-4 py-2 rounded-lg border text-sm">Batal</button><button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-bold">Simpan Profil</button></div></form></section>`;
+      document.body.appendChild(modal);
+    }
+    async function submitUserProfileEdit(event, authId) {
+      event.preventDefault(); if(!isAdmin()) return showToast('Hanya Admin yang dapat mengubah profil.','error');
+      const form=event.currentTarget, fd=new FormData(form), user=(appState.users||[]).find(u=>String(u.authId||'')===String(authId));
+      if(!user) return showToast('Profil pengguna tidak ditemukan.','error');
+      const fullName=String(fd.get('full_name')||'').trim(), nip=String(fd.get('nip')||'').trim(), subject=String(fd.get('subject')||'').trim();
+      if(!fullName) return showToast('Nama lengkap wajib diisi.','error');
+      const button=form.querySelector('button[type="submit"]'); button.disabled=true; button.textContent='Menyimpan...';
+      try {
+        const {error}=await sb.from('profiles').update({full_name:fullName,nip:nip||null,subject:subject||null}).eq('id',authId);
+        if(error) throw error;
+        const oldName=user.name; user.name=fullName; user.nip=nip; user.subject=subject;
+        (appState.mappings||[]).forEach(m=>{if(String(m.supervisorId)===String(user.id)||m.supervisorName===oldName)m.supervisorName=fullName;});
+        (appState.schedules||[]).forEach(r=>{if(String(r.teacherId)===String(user.id)||r.teacherName===oldName)r.teacherName=fullName;if(String(r.supervisorId)===String(user.id)||r.supervisorName===oldName)r.supervisorName=fullName;});
+        (appState.documents||[]).forEach(r=>{if(String(r.teacherId)===String(user.id)||r.teacherName===oldName)r.teacherName=fullName;});
+        (appState.academicResults||[]).forEach(r=>{if(String(r.teacherId)===String(user.id)||r.teacherName===oldName)r.teacherName=fullName;if(String(r.supervisorId)===String(user.id)||r.supervisorName===oldName)r.supervisorName=fullName;});
+        (appState.managerialResults||[]).forEach(r=>{if(String(r.supervisorId)===String(user.id)||r.supervisorName===oldName)r.supervisorName=fullName;});
+        saveState(); addAuditLog(`Memperbarui profil ${user.id}`); document.getElementById('editUserProfileModal')?.remove(); renderApp(); showToast('Profil diperbarui dan nama terkait diselaraskan.');
+      } catch(err) { console.error(err); showToast('Gagal memperbarui profil: '+err.message,'error'); button.disabled=false; button.textContent='Simpan Profil'; }
     }
 
     async function resetPassword(userId) {
