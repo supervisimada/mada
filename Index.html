@@ -216,7 +216,6 @@
         }
       }
       
-      // Wajib autentikasi Supabase; jangan gunakan akun contoh dari localStorage.
       appState.currentUser = null;
       showLoginScreen();
     };
@@ -296,7 +295,6 @@
       document.getElementById('printModal').classList.add('hidden');
     }
 
-    // ===== Hak akses berbasis peran (UI). Kebijakan RLS Supabase tetap wajib dikonfigurasi di server. =====
     function currentRole() { return String(appState.currentUser?.role || "").toLowerCase(); }
     function isAdmin() { return ["admin", "administrator"].includes(currentRole()); }
     function isSupervisor() { return currentRole() === "supervisor"; }
@@ -524,7 +522,6 @@
         </main>
       `;
 
-      // Sembunyikan menu di luar peran aktif, termasuk bila URL/menu lama masih tersimpan.
       document.querySelectorAll('nav button[onclick^="navigate("]').forEach(btn => {
         const match = btn.getAttribute('onclick')?.match(/navigate\('([^']+)'\)/);
         if (match && !allowedMenus().includes(match[1])) btn.style.display = 'none';
@@ -546,7 +543,6 @@
       renderApp();
     }
 
-    // Pergantian peran lewat UI dinonaktifkan; pergantian akun wajib melalui login Supabase.
     function switchUserRole() {
       showToast("Pergantian akun hanya dapat dilakukan melalui Keluar lalu login kembali.", "error");
     }
@@ -733,9 +729,17 @@
         <div class="space-y-6">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h3 class="font-bold text-slate-800 dark:text-white text-base">Kelola Akun Pengguna & Hak Akses</h3>
-            <button onclick="openAddUserModal()" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
-              <i class="fa-solid fa-user-plus"></i> Tambah Pengguna Baru
-            </button>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="openAddUserModal()" class="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-user-plus"></i> Tambah Pengguna Baru
+              </button>
+              <button onclick="openImportFor('users')" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-file-excel"></i> Import Excel Pengguna
+              </button>
+              <button onclick="openBulkDataEditor('users')" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-table-cells-large"></i> Form Massal Pengguna
+              </button>
+            </div>
           </div>
 
           <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
@@ -746,6 +750,7 @@
                   <th class="p-4">Nama Lengkap</th>
                   <th class="p-4">NIP</th>
                   <th class="p-4">Role Hak Akses</th>
+                  <th class="p-4">Mapel</th>
                   <th class="p-4 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -754,8 +759,9 @@
                   <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
                     <td class="p-4 font-mono font-bold text-slate-800 dark:text-slate-200">${u.id}</td>
                     <td class="p-4 font-bold text-slate-900 dark:text-white">${u.name}</td>
-                    <td class="p-4 text-slate-500">${u.nip}</td>
+                    <td class="p-4 text-slate-500">${u.nip || '-'}</td>
                     <td class="p-4"><span class="px-2.5 py-1 rounded-md text-[10px] font-bold ${u.role === 'Admin' ? 'bg-purple-100 text-purple-800' : u.role === 'Supervisor' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'}">${u.role}</span></td>
+                    <td class="p-4 text-slate-500">${u.subject || '-'}</td>
                     <td class="p-4 text-center space-x-2">
                       <button onclick="editUserProfile('${escHtml(u.authId||'')}')" class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold border border-blue-200 text-[10px]" title="Ubah profil"><i class="fa-solid fa-pen mr-1"></i> Ubah Profil</button>
                       <button onclick="resetPassword('${escHtml(u.id)}')" class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 rounded-lg font-bold border border-amber-200 text-[10px]" title="Reset Password">
@@ -1263,7 +1269,6 @@
       const area = document.getElementById('printableArea');
       area.innerHTML = `
         <div class="p-8 space-y-6 font-serif">
-          <!-- Kop Surat Resmi MA Abu Darrin Bojonegoro -->
           <div class="flex items-center justify-between border-b-4 border-double border-black pb-4 text-center">
             <div class="w-16 h-16 flex items-center justify-center font-black text-2xl border-2 border-black rounded-full">MA</div>
             <div class="flex-1 px-4">
@@ -1294,7 +1299,6 @@
             <p class="p-3 bg-slate-50 border rounded-xl"><strong>Rekomendasi / RTL:</strong> ${r.recommendation}</p>
           </div>
 
-          <!-- Signature Pad Section -->
           <div class="pt-8 grid grid-cols-2 gap-8 text-center font-sans text-xs">
             <div>
               <p>Guru Yang Di-supervisi,</p>
@@ -1380,11 +1384,10 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       showToast("Skrip Supabase SQL berhasil disalin!");
     }
 
-    // IMPORT EXCEL: hanya administrator. Data dibaca di browser, divalidasi,
-    // lalu disimpan melalui mekanisme saveState yang sudah tersambung ke Supabase.
     let excelImportRows = [];
     let excelImportFileName = '';
     const BULK_FIELDS = {
+      users: [['id','ID Login (misal: guru3)'],['name','Nama Lengkap'],['nip','NIP'],['role','Role (Admin/Supervisor/Guru/Tendik)'],['subject','Mata Pelajaran (Opsional)']],
       schedules: [['teacherName','Nama Guru'],['supervisorName','Nama Supervisor'],['class','Kelas'],['subject','Mata Pelajaran'],['date','Tanggal (YYYY-MM-DD)'],['stage','Tahap'],['status','Status']],
       documents: [['teacherName','Nama Guru'],['title','Judul Dokumen'],['category','Kategori'],['date','Tanggal (YYYY-MM-DD)'],['status','Status'],['notes','Catatan'],['reviewNotes','Catatan Review']],
       academicResults: [['teacherName','Nama Guru'],['supervisorName','Nama Supervisor'],['date','Tanggal (YYYY-MM-DD)'],['class','Kelas'],['subject','Mata Pelajaran'],['percentage','Nilai %'],['grade','Predikat'],['notes','Catatan'],['recommendation','Rekomendasi'],['rtl','Tindak Lanjut']],
@@ -1393,17 +1396,21 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       classes: [['value','Nama Kelas']],
       subjects: [['value','Nama Mata Pelajaran']]
     };
-    const BULK_LABELS = {schedules:'Jadwal Supervisi',documents:'Dokumen Guru',academicResults:'Hasil Supervisi Akademik',managerialResults:'Hasil Supervisi Manajerial',mappings:'Pemetaan Supervisor-Guru',classes:'Daftar Kelas',subjects:'Daftar Mata Pelajaran'};
+    const BULK_LABELS = {users:'Manajemen Pengguna',schedules:'Jadwal Supervisi',documents:'Dokumen Guru',academicResults:'Hasil Supervisi Akademik',managerialResults:'Hasil Supervisi Manajerial',mappings:'Pemetaan Supervisor-Guru',classes:'Daftar Kelas',subjects:'Daftar Mata Pelajaran'};
+    
     function dataActionBar(type) {
       return `<div class="flex flex-wrap gap-2"><button onclick="openBulkDataEditor('${type}')" class="px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold"><i class="fa-solid fa-table-cells-large mr-1"></i>Tambah/Ubah Data Manual (Form Massal)</button><button onclick="openImportFor('${type}')" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"><i class="fa-solid fa-file-excel mr-1"></i>Import Excel</button></div>`;
     }
+    
     function openImportFor(type) {
       if (!isAdmin()) return showToast('Import Excel hanya untuk Admin.', 'error');
       appState.activeMenu='import_excel'; renderApp();
       const select=document.getElementById('excelImportType'); if(select) select.value=type;
       const preview=document.getElementById('excelImportPreview'); if(preview) preview.innerHTML='<p class="text-sm text-slate-400">Pilih file untuk melihat pratinjau data.</p>';
     }
+
     function bulkVisibleRows(type) {
+      if(type==='users') return appState.users || [];
       if(type==='schedules') return scopedSchedules();
       if(type==='documents') return scopedDocuments();
       if(type==='academicResults') return scopedAcademicResults();
@@ -1413,9 +1420,10 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       if(type==='subjects') return appState.subjects||[];
       return [];
     }
+
     function openBulkDataEditor(type, focusId='') {
       if (!BULK_FIELDS[type]) return showToast('Jenis data ini belum mendukung formulir massal.', 'error');
-      if(['mappings','classes','subjects'].includes(type) && !isAdmin()) return showToast('Data master hanya dapat diubah Admin.', 'error');
+      if(['mappings','classes','subjects','users'].includes(type) && !isAdmin()) return showToast('Data master dan pengguna hanya dapat diubah Admin.', 'error');
       if(type==='schedules' && !(isAdmin()||isSupervisor())) return showToast('Akses ditolak.', 'error');
       if(['documents','academicResults','managerialResults'].includes(type) && !(isAdmin()||isSupervisor())) return showToast('Akses ditolak.', 'error');
       const rows=bulkVisibleRows(type).map((r,i)=> ['classes','subjects'].includes(type) ? ({id:`${type==='classes'?'CLASS':'SUBJECT'}-${i+1}`,value:r}) : ({...r}));
@@ -1450,6 +1458,12 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         if(['classes','subjects'].includes(type)) { updated.push(obj.value); continue; }
         const id=old?.id || `${type.toUpperCase()}-${Date.now()}-${updated.length+1}`;
         const row={...(old||{}),...obj,id};
+        if(type==='users') {
+          if(!row.id || !row.name) return showToast('ID Login dan Nama Lengkap wajib diisi.','error');
+          row.role = ['Admin','Supervisor','Guru','Tendik'].includes(row.role) ? row.role : 'Guru';
+          row.pass = row.pass || 'password123';
+          row.active = true;
+        }
         if(type==='schedules') {
           const teacher=(appState.users||[]).find(u=>u.role==='Guru' && (String(u.name).toLowerCase()===String(row.teacherName||'').toLowerCase() || String(u.id).toLowerCase()===String(row.teacherName||'').toLowerCase()));
           if(teacher) { row.teacherId=teacher.id; row.teacherName=teacher.name; }
@@ -1488,16 +1502,17 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
           <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
             <div class="flex items-start gap-4"><div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl"><i class="fa-solid fa-file-excel"></i></div><div><h3 class="font-bold text-lg text-slate-800 dark:text-white">Import Data dari Excel</h3><p class="text-sm text-slate-500 mt-1">Unggah .xlsx, .xls, atau .csv untuk memasukkan data ke aplikasi. Periksa pratinjau sebelum menerapkan perubahan.</p></div></div>
             <div class="grid md:grid-cols-2 gap-4 mt-6">
-              <div><label class="block text-xs font-bold mb-2">Jenis data yang diimpor</label><select id="excelImportType" class="w-full border border-slate-300 rounded-xl p-3 text-sm bg-white text-slate-800"><option value="schedules">Jadwal Supervisi</option><option value="documents">Dokumen Guru</option><option value="academicResults">Hasil Supervisi Akademik</option><option value="managerialResults">Hasil Supervisi Manajerial</option><option value="classes">Daftar Kelas</option><option value="subjects">Daftar Mata Pelajaran</option><option value="mappings">Pemetaan Supervisor-Guru</option></select></div>
+              <div><label class="block text-xs font-bold mb-2">Jenis data yang diimpor</label><select id="excelImportType" class="w-full border border-slate-300 rounded-xl p-3 text-sm bg-white text-slate-800"><option value="users">Manajemen Pengguna</option><option value="schedules">Jadwal Supervisi</option><option value="documents">Dokumen Guru</option><option value="academicResults">Hasil Supervisi Akademik</option><option value="managerialResults">Hasil Supervisi Manajerial</option><option value="classes">Daftar Kelas</option><option value="subjects">Daftar Mata Pelajaran</option><option value="mappings">Pemetaan Supervisor-Guru</option></select></div>
               <div><label class="block text-xs font-bold mb-2">Cara memasukkan data</label><select id="excelImportMode" class="w-full border border-slate-300 rounded-xl p-3 text-sm bg-white text-slate-800"><option value="append">Tambahkan ke data yang ada</option><option value="replace">Ganti seluruh data pada jenis terpilih</option></select><p class="text-[11px] text-amber-700 mt-1">Mode ganti akan menghapus data lokal pada kategori terpilih sebelum diganti.</p></div>
             </div>
             <div class="mt-5"><label class="block text-xs font-bold mb-2">Pilih file Excel / CSV</label><input id="excelImportFile" type="file" accept=".xlsx,.xls,.csv" onchange="previewExcelImport(event)" class="block w-full text-sm border border-slate-300 rounded-xl p-3 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-2 file:text-white"/><p class="text-[11px] text-slate-500 mt-2">Baris pertama wajib berisi judul kolom. Kolom yang tidak dikenal akan diabaikan.</p></div>
             <div class="flex flex-wrap gap-2 mt-4"><button onclick="downloadExcelTemplate()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50"><i class="fa-solid fa-download mr-2"></i>Unduh Template Excel</button><button onclick="applyExcelImport()" id="excelImportApply" disabled class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold disabled:opacity-40"><i class="fa-solid fa-check mr-2"></i>Terapkan Import</button></div>
           </div>
           <div id="excelImportPreview" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6"><p class="text-sm text-slate-400">Pilih file untuk melihat pratinjau data.</p></div>
-          <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs text-blue-900"><b>Catatan:</b> Import ini memperbarui data aplikasi dan sinkronisasi melalui <code>app_data</code> yang sudah digunakan aplikasi. Import tidak membuat akun login Supabase untuk guru/supervisor. Karena data utama saat ini masih disimpan sebagai payload JSON bersama, hak akses di antarmuka bukan pengganti kebijakan RLS database.</div>
+          <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs text-blue-900"><b>Catatan:</b> Import ini memperbarui data aplikasi dan sinkronisasi melalui <code>app_data</code> yang sudah digunakan aplikasi. Import tidak membuat akun login Supabase untuk guru/supervisor secara otomatis.</div>
         </div>`;
     }
+    
     function excelHeaderKey(value) {
       return String(value ?? '').trim().toLowerCase().replace(/[\s_.\-/]+/g, '').replace(/[^a-z0-9]/g, '');
     }
@@ -1517,8 +1532,10 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       const m=str.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/); if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
       const d=new Date(str); return isNaN(d) ? str : d.toISOString().slice(0,10);
     }
+    
     function normalizeExcelRow(row, type, i) {
       const id = excelText(excelGet(row,'id','ID','kode')) || `${type}-${Date.now()}-${i+1}`;
+      if(type==='users') return { id:excelText(excelGet(row,'id','ID','ID Login','user_id','userid'))||`user-${i+1}`, name:excelText(excelGet(row,'name','Nama','Nama Lengkap','full_name','namalengkap'))||'Nama Pengguna', nip:excelText(excelGet(row,'nip','NIP','nip')), role:excelText(excelGet(row,'role','Role','Hak Akses','peran'))||'Guru', subject:excelText(excelGet(row,'subject','Mapel','Mata Pelajaran')), pass:'password123', active:true };
       if(type==='schedules') return { id, teacherId:excelText(excelGet(row,'teacherId','ID Guru','user_id')), teacherName:excelText(excelGet(row,'teacherName','Guru','Nama Guru','Nama')), supervisorName:excelText(excelGet(row,'supervisorName','Supervisor','Nama Supervisor')), class:excelText(excelGet(row,'class','Kelas')), subject:excelText(excelGet(row,'subject','Mapel','Mata Pelajaran')), date:excelDate(excelGet(row,'date','Tanggal')), stage:excelText(excelGet(row,'stage','Tahap','Jenis Supervisi'))||'Observasi Kelas', status:excelText(excelGet(row,'status','Status'))||'Terjadwal' };
       if(type==='documents') return { id, teacherId:excelText(excelGet(row,'teacherId','ID Guru','user_id')), teacherName:excelText(excelGet(row,'teacherName','Guru','Nama Guru','Nama')), title:excelText(excelGet(row,'title','Judul','Nama Dokumen')), category:excelText(excelGet(row,'category','Kategori','Jenis Dokumen'))||'Dokumen', date:excelDate(excelGet(row,'date','Tanggal')), status:excelText(excelGet(row,'status','Status'))||'Menunggu Review', notes:excelText(excelGet(row,'notes','Catatan')) };
       if(type==='academicResults') { const pct=Number(excelText(excelGet(row,'percentage','Persentase','Nilai')) .replace('%','').replace(',','.'))||0; return { id, teacherName:excelText(excelGet(row,'teacherName','Guru','Nama Guru','Nama')), supervisorName:excelText(excelGet(row,'supervisorName','Supervisor','Nama Supervisor')), date:excelDate(excelGet(row,'date','Tanggal')), class:excelText(excelGet(row,'class','Kelas')), subject:excelText(excelGet(row,'subject','Mapel','Mata Pelajaran')), scores:{}, totalScore:Number(excelGet(row,'totalScore','Total Skor'))||0, maxScore:Number(excelGet(row,'maxScore','Skor Maksimal'))||0, percentage:pct, grade:excelText(excelGet(row,'grade','Predikat'))||'Belum ditentukan', notes:excelText(excelGet(row,'notes','Catatan')), recommendation:excelText(excelGet(row,'recommendation','Rekomendasi')), rtl:excelText(excelGet(row,'rtl','RTL','Tindak Lanjut')), signatures:{supervisor:false,teacher:false} }; }
@@ -1528,6 +1545,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       if(type==='mappings') { const ids=excelText(excelGet(row,'teacherIds','ID Guru','Daftar ID Guru','teacherId')).split(/[;,\n]/).map(x=>x.trim()).filter(Boolean); return { id, supervisorId:excelText(excelGet(row,'supervisorId','ID Supervisor')), supervisorName:excelText(excelGet(row,'supervisorName','Supervisor','Nama Supervisor')), teacherIds:ids }; }
       return null;
     }
+
     async function previewExcelImport(event) {
       if(!isAdmin()) return showToast('Hanya administrator yang boleh mengimpor data.','error');
       const file=event.target.files?.[0]; if(!file) return;
@@ -1541,15 +1559,16 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         excelImportFileName=file.name;
         const target=document.getElementById('excelImportPreview');
         const sample=excelImportRows.slice(0,6);
-        target.innerHTML=`<div class="flex items-center justify-between mb-3"><div><h4 class="font-bold text-slate-800 dark:text-white">Pratinjau: ${escHtml(file.name)}</h4><p class="text-xs text-slate-500 mt-1">${excelImportRows.length} baris siap diproses • sheet: ${escHtml(wb.SheetNames[0])}</p></div><span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">Siap</span></div><div class="overflow-auto border rounded-xl"><table class="min-w-full text-xs"><thead class="bg-slate-50"><tr>${Object.keys(sample[0]||{}).slice(0,8).map(k=>`<th class="text-left p-2 border-b">${escHtml(k)}</th>`).join('')}</tr></thead><tbody>${sample.map(r=>`<tr>${Object.values(r).slice(0,8).map(v=>`<td class="p-2 border-b max-w-48 truncate">${escHtml(Array.isArray(v)?v.join(', '):typeof v==='object'?JSON.stringify(v):v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="text-[11px] text-slate-500 mt-2">Menampilkan maksimal 6 baris pertama. Pastikan kolom Guru, tanggal, kelas, dan data terkait sudah benar.</p>`;
+        target.innerHTML=`<div class="flex items-center justify-between mb-3"><div><h4 class="font-bold text-slate-800 dark:text-white">Pratinjau: ${escHtml(file.name)}</h4><p class="text-xs text-slate-500 mt-1">${excelImportRows.length} baris siap diproses • sheet: ${escHtml(wb.SheetNames[0])}</p></div><span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">Siap</span></div><div class="overflow-auto border rounded-xl"><table class="min-w-full text-xs"><thead class="bg-slate-50"><tr>${Object.keys(sample[0]||{}).slice(0,8).map(k=>`<th class="text-left p-2 border-b">${escHtml(k)}</th>`).join('')}</tr></thead><tbody>${sample.map(r=>`<tr>${Object.values(r).slice(0,8).map(v=>`<td class="p-2 border-b max-w-48 truncate">${escHtml(Array.isArray(v)?v.join(', '):typeof v==='object'?JSON.stringify(v):v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="text-[11px] text-slate-500 mt-2">Menampilkan maksimal 6 baris pertama.</p>`;
         document.getElementById('excelImportApply').disabled=!excelImportRows.length;
       } catch(err) { excelImportRows=[]; document.getElementById('excelImportApply').disabled=true; document.getElementById('excelImportPreview').innerHTML=`<p class="text-sm text-red-600">Gagal membaca file: ${escHtml(err.message)}</p>`; }
     }
+
     function applyExcelImport() {
       if(!isAdmin()) return showToast('Hanya administrator yang boleh mengimpor data.','error');
       if(!excelImportRows.length) return showToast('Pilih file dan periksa pratinjau terlebih dahulu.','error');
       const type=document.getElementById('excelImportType').value, mode=document.getElementById('excelImportMode').value;
-      const labels={schedules:'jadwal',documents:'dokumen',academicResults:'hasil supervisi akademik',managerialResults:'hasil supervisi manajerial',classes:'kelas',subjects:'mata pelajaran',mappings:'pemetaan supervisor-guru'};
+      const labels={users:'pengguna',schedules:'jadwal',documents:'dokumen',academicResults:'hasil supervisi akademik',managerialResults:'hasil supervisi manajerial',classes:'kelas',subjects:'mata pelajaran',mappings:'pemetaan supervisor-guru'};
       if(!confirm(`Impor ${excelImportRows.length} baris dari ${excelImportFileName} ke ${labels[type]}?${mode==='replace'?' Data '+labels[type]+' yang ada akan diganti.':' Data akan ditambahkan.'}`)) return;
       if(['classes','subjects'].includes(type)) {
         const key=type; const old=mode==='replace'?[]:(appState[key]||[]); appState[key]=[...new Set([...old,...excelImportRows.map(excelText).filter(Boolean)])];
@@ -1557,6 +1576,14 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         const old=mode==='replace'?[]:(appState[type]||[]);
         const seen=new Set(old.map(x=>String(x.id||'')));
         const incoming=excelImportRows.map((r,i)=>({...r, id:r.id||`${type}-${Date.now()}-${i}`}));
+        if(type==='users') {
+          for(const row of incoming) {
+            if(!row.id || !row.name) return showToast('ID dan Nama Lengkap pengguna wajib diisi.','error');
+            row.role = ['Admin','Supervisor','Guru','Tendik'].includes(row.role) ? row.role : 'Guru';
+            row.pass = row.pass || 'password123';
+            row.active = true;
+          }
+        }
         if(type==='mappings') {
           for(const row of incoming) {
             const sup=(appState.users||[]).find(u=>u.role==='Supervisor' && (String(u.id).toLowerCase()===String(row.supervisorId||'').toLowerCase() || String(u.name).toLowerCase()===String(row.supervisorName||'').toLowerCase()));
@@ -1580,18 +1607,19 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
           }
         }
         if(mode==='append') {
-          // ID yang sama diperbarui agar import ulang tidak membuat duplikat.
           const byId=new Map(old.map(x=>[String(x.id||''),x])); incoming.forEach(x=>byId.set(String(x.id),x)); appState[type]=Array.from(byId.values());
         } else appState[type]=incoming;
       }
       addAuditLog(`Import Excel: ${labels[type]} (${excelImportRows.length} baris, ${mode==='replace'?'ganti':'tambah/perbarui'})`);
-      saveState(); excelImportRows=[]; excelImportFileName=''; renderApp(); showToast('Import berhasil diterapkan. Sinkronisasi Supabase dijadwalkan.');
+      saveState(); excelImportRows=[]; excelImportFileName=''; renderApp(); showToast('Import berhasil diterapkan.');
     }
+
     function downloadExcelTemplate() {
       if(!isAdmin()) return showToast('Hanya administrator.','error');
       if(!window.XLSX) return showToast('Pustaka Excel belum termuat.','error');
-      const type=document.getElementById('excelImportType')?.value||'schedules';
+      const type=document.getElementById('excelImportType')?.value||'users';
       const templates={
+        users:[{ID:'guru3',Nama_Lengkap:'Siti Nurhaliza, S.Pd.',NIP:'199501012020122001',Role:'Guru',Mata_Pelajaran:'Biologi / IPA'}],
         schedules:[{ID:'SCH-NEW-01',ID_Guru:'guru1',Guru:'Nama Guru',Supervisor:'Nama Supervisor',Kelas:'X-A',Mapel:'Matematika',Tanggal:'2026-10-20',Tahap:'Observasi Kelas',Status:'Terjadwal'}],
         documents:[{ID:'DOC-NEW-01',ID_Guru:'guru1',Guru:'Nama Guru',Judul:'Modul Ajar',Kategori:'Modul Ajar',Tanggal:'2026-10-20',Status:'Menunggu Review',Catatan:''}],
         academicResults:[{ID:'RES-ACAD-NEW-01',Guru:'Nama Guru',Supervisor:'Nama Supervisor',Tanggal:'2026-10-20',Kelas:'X-A',Mapel:'Matematika',Persentase:85,Predikat:'Baik (B)',Catatan:'',Rekomendasi:'',RTL:''}],
@@ -1600,7 +1628,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         subjects:[{Mata_Pelajaran:'Matematika'},{Mata_Pelajaran:'Bahasa Indonesia'}],
         mappings:[{ID:'MAP-NEW-01',ID_Supervisor:'supervisor1',Supervisor:'Nama Supervisor',ID_Guru:'guru1,guru2'}]
       };
-      const wb=XLSX.utils.book_new(), ws=XLSX.utils.json_to_sheet(templates[type]||templates.schedules); XLSX.utils.book_append_sheet(wb,ws,'Template'); XLSX.writeFile(wb,`Template_Import_${type}.xlsx`);
+      const wb=XLSX.utils.book_new(), ws=XLSX.utils.json_to_sheet(templates[type]||templates.users); XLSX.utils.book_append_sheet(wb,ws,'Template'); XLSX.writeFile(wb,`Template_Import_${type}.xlsx`);
     }
 
     function exportJSONV2() {
@@ -1633,15 +1661,12 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
     }
   </script>
 
-  <!-- Supabase integration layer: configure URL and publishable/anon key below. -->
+  <!-- Supabase integration layer -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // WAJIB: isi URL project dan publishable/anon key dari Supabase > Project Settings > API.
-    // Jangan pernah menaruh service_role/secret key di HTML.
     const SUPABASE_URL = "https://zbdksbtptyecyaoqsrse.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_gwA0ueJ42HnZCnGoDW0aAA_KIjroagU";
     const LOGIN_EMAIL_DOMAIN = "auth.maabudarrin.sch.id";
-    // Akun admin yang sudah ada di Supabase Auth memakai email asli ini.
     const ADMIN_LOGIN_ID = "admin";
     const ADMIN_AUTH_EMAIL = "supervismada@gmail.com";
     let sb = null;
@@ -1672,7 +1697,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
               <input id="loginPassword" type="password" autocomplete="current-password" required class="w-full border rounded-xl p-3 text-sm" placeholder="Masukkan password"></div>
               <button id="loginSubmit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl p-3 font-bold text-sm">Masuk</button>
             </form>
-            <p class="text-[11px] text-slate-500 mt-5">Login menggunakan ID akun yang dibuat administrator. Akun harus terdaftar di Supabase Authentication dan tabel profiles.</p>
+            <p class="text-[11px] text-slate-500 mt-5">Login menggunakan ID akun yang dibuat administrator.</p>
             <p class="text-[10px] text-slate-400 mt-3">Koneksi: <span id="connectionStatus">memeriksa konfigurasi...</span></p>
           </div>
         </div>`;
@@ -1703,7 +1728,7 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         if (profileError) throw profileError;
         if (!profile) {
           await sb.auth.signOut();
-          throw new Error("Akun Auth ditemukan, tetapi profil tidak ditemukan. Pastikan profiles.id sama dengan UUID Auth.");
+          throw new Error("Akun Auth ditemukan, tetapi profil tidak ditemukan.");
         }
         if (!profile.active) {
           await sb.auth.signOut();
@@ -1723,8 +1748,6 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
     }
 
     function profileToAppUser(p) {
-      // Database memakai role lowercase (administrator/supervisor/guru),
-      // sedangkan antarmuka lama menggunakan label kapital.
       const roleMap = {
         administrator: "Admin",
         admin: "Admin",
@@ -1748,7 +1771,6 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       const query = sb.from("profiles").select("id,user_id,full_name,role,nip,subject,active").eq("active", true).order("created_at", { ascending: true });
       const { data, error } = await query;
       if (error) {
-        // Kebijakan RLS dapat membatasi daftar profil untuk pengguna non-admin.
         if (isAdmin()) throw error;
         if (appState.currentUser) appState.users = [appState.currentUser];
         return;
@@ -1783,11 +1805,9 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       }, { onConflict: "data_key" });
       if (error) {
         console.error("Sinkronisasi Supabase gagal:", error);
-        showToast("Data lokal tersimpan, tetapi sinkronisasi Supabase gagal: " + error.message, "error");
       }
     }
 
-    // Tetap menyimpan salinan lokal, dan menyinkronkan data ke Supabase.
     saveState = function() {
       try {
         const safe = { ...appState, currentUser: null, users: [] };
@@ -1803,7 +1823,6 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       showLoginScreen();
     }
 
-    // Admin membuat akun melalui Edge Function. Password tidak pernah disimpan di browser/localStorage.
     async function openAddUserModal() {
       if (!appState.currentUser || !isAdmin()) return showToast("Hanya Admin yang dapat membuat pengguna.", "error");
       document.getElementById('createUserFormModal')?.remove();
@@ -1823,17 +1842,17 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
         if(!sess.session) throw new Error('Sesi admin tidak ditemukan. Silakan login kembali.');
         const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-user`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${sess.session.access_token}`,'apikey':SUPABASE_ANON_KEY}, body:JSON.stringify({action:'create',user_id:userId,full_name:fullName,role,password,nip,subject:role==='Guru'?subject:''}) });
         const result=await response.json(); if(!response.ok) throw new Error(result.error||'Gagal membuat akun.');
-        await loadProfiles(); saveState(); document.getElementById('createUserFormModal')?.remove(); renderApp(); showToast(`Akun ${userId} berhasil dibuat dan disimpan ke Supabase.`);
+        await loadProfiles(); saveState(); document.getElementById('createUserFormModal')?.remove(); renderApp(); showToast(`Akun ${userId} berhasil dibuat.`);
       } catch(err) { console.error(err); showToast('Gagal membuat pengguna: '+err.message,'error'); submit.disabled=false; submit.textContent='Buat Akun'; }
     }
 
     async function editUserProfile(authId) {
       if(!isAdmin()) return showToast('Hanya Admin yang dapat mengubah profil.','error');
       const user=(appState.users||[]).find(u=>String(u.authId||'')===String(authId));
-      if(!user) return showToast('Profil tidak ditemukan. Muat ulang daftar pengguna.','error');
+      if(!user) return showToast('Profil tidak ditemukan.','error');
       document.getElementById('editUserProfileModal')?.remove();
       const modal=document.createElement('div'); modal.id='editUserProfileModal'; modal.className='fixed inset-0 z-[100] bg-slate-950/70 p-4 flex items-center justify-center';
-      modal.innerHTML=`<section class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"><header class="p-5 border-b flex items-center justify-between"><div><h3 class="font-bold text-lg text-slate-900">Ubah Profil Pengguna</h3><p class="text-xs text-slate-500 mt-1">ID login dan role tidak diubah agar relasi data tetap konsisten.</p></div><button type="button" onclick="document.getElementById('editUserProfileModal').remove()" class="px-3 py-2 bg-slate-100 rounded-lg text-sm">Tutup</button></header><form onsubmit="submitUserProfileEdit(event,'${escHtml(user.authId)}')" class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-xs font-bold mb-1">ID Login (tetap)</label><input disabled value="${escHtml(user.id)}" class="w-full border rounded-lg p-3 text-sm bg-slate-100"></div><div><label class="block text-xs font-bold mb-1">Role (tetap)</label><input disabled value="${escHtml(user.role)}" class="w-full border rounded-lg p-3 text-sm bg-slate-100"></div><div class="md:col-span-2"><label class="block text-xs font-bold mb-1">Nama Lengkap *</label><input name="full_name" required value="${escHtml(user.name)}" class="w-full border rounded-lg p-3 text-sm"></div><div><label class="block text-xs font-bold mb-1">NIP</label><input name="nip" value="${escHtml(user.nip||'')}" class="w-full border rounded-lg p-3 text-sm"></div><div><label class="block text-xs font-bold mb-1">Mata Pelajaran</label><input name="subject" list="editSubjectOptions" value="${escHtml(user.subject||'')}" class="w-full border rounded-lg p-3 text-sm"><datalist id="editSubjectOptions">${(appState.subjects||[]).map(x=>`<option value="${escHtml(x)}"></option>`).join('')}</datalist></div><div class="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" onclick="document.getElementById('editUserProfileModal').remove()" class="px-4 py-2 rounded-lg border text-sm">Batal</button><button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-bold">Simpan Profil</button></div></form></section>`;
+      modal.innerHTML=`<section class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"><header class="p-5 border-b flex items-center justify-between"><div><h3 class="font-bold text-lg text-slate-900">Ubah Profil Pengguna</h3></div><button type="button" onclick="document.getElementById('editUserProfileModal').remove()" class="px-3 py-2 bg-slate-100 rounded-lg text-sm">Tutup</button></header><form onsubmit="submitUserProfileEdit(event,'${escHtml(user.authId)}')" class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-xs font-bold mb-1">ID Login (tetap)</label><input disabled value="${escHtml(user.id)}" class="w-full border rounded-lg p-3 text-sm bg-slate-100"></div><div><label class="block text-xs font-bold mb-1">Role (tetap)</label><input disabled value="${escHtml(user.role)}" class="w-full border rounded-lg p-3 text-sm bg-slate-100"></div><div class="md:col-span-2"><label class="block text-xs font-bold mb-1">Nama Lengkap *</label><input name="full_name" required value="${escHtml(user.name)}" class="w-full border rounded-lg p-3 text-sm"></div><div><label class="block text-xs font-bold mb-1">NIP</label><input name="nip" value="${escHtml(user.nip||'')}" class="w-full border rounded-lg p-3 text-sm"></div><div><label class="block text-xs font-bold mb-1">Mata Pelajaran</label><input name="subject" value="${escHtml(user.subject||'')}" class="w-full border rounded-lg p-3 text-sm"></div><div class="md:col-span-2 flex justify-end gap-2 pt-2"><button type="button" onclick="document.getElementById('editUserProfileModal').remove()" class="px-4 py-2 rounded-lg border text-sm">Batal</button><button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-bold">Simpan Profil</button></div></form></section>`;
       document.body.appendChild(modal);
     }
     async function submitUserProfileEdit(event, authId) {
@@ -1846,34 +1865,11 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       try {
         const {error}=await sb.from('profiles').update({full_name:fullName,nip:nip||null,subject:subject||null}).eq('id',authId);
         if(error) throw error;
-        const oldName=user.name; user.name=fullName; user.nip=nip; user.subject=subject;
-        (appState.mappings||[]).forEach(m=>{if(String(m.supervisorId)===String(user.id)||m.supervisorName===oldName)m.supervisorName=fullName;});
-        (appState.schedules||[]).forEach(r=>{if(String(r.teacherId)===String(user.id)||r.teacherName===oldName)r.teacherName=fullName;if(String(r.supervisorId)===String(user.id)||r.supervisorName===oldName)r.supervisorName=fullName;});
-        (appState.documents||[]).forEach(r=>{if(String(r.teacherId)===String(user.id)||r.teacherName===oldName)r.teacherName=fullName;});
-        (appState.academicResults||[]).forEach(r=>{if(String(r.teacherId)===String(user.id)||r.teacherName===oldName)r.teacherName=fullName;if(String(r.supervisorId)===String(user.id)||r.supervisorName===oldName)r.supervisorName=fullName;});
-        (appState.managerialResults||[]).forEach(r=>{if(String(r.supervisorId)===String(user.id)||r.supervisorName===oldName)r.supervisorName=fullName;});
-        saveState(); addAuditLog(`Memperbarui profil ${user.id}`); document.getElementById('editUserProfileModal')?.remove(); renderApp(); showToast('Profil diperbarui dan nama terkait diselaraskan.');
+        user.name=fullName; user.nip=nip; user.subject=subject;
+        saveState(); addAuditLog(`Memperbarui profil ${user.id}`); document.getElementById('editUserProfileModal')?.remove(); renderApp(); showToast('Profil diperbarui.');
       } catch(err) { console.error(err); showToast('Gagal memperbarui profil: '+err.message,'error'); button.disabled=false; button.textContent='Simpan Profil'; }
     }
 
-    async function resetPassword(userId) {
-      if (!appState.currentUser || !isAdmin()) return showToast("Hanya Admin yang dapat mereset password.", "error");
-      const password = prompt("Masukkan password baru (minimal 8 karakter):");
-      if (!password || password.length < 8) return showToast("Password minimal 8 karakter.", "error");
-      try {
-        const { data: sess } = await sb.auth.getSession();
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-user`, {
-          method: "POST",
-          headers: { "Content-Type":"application/json", "Authorization":`Bearer ${sess.session.access_token}`, "apikey":SUPABASE_ANON_KEY },
-          body: JSON.stringify({ action:"reset_password", user_id:userId, password })
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Reset password gagal.");
-        showToast("Password berhasil diubah di Supabase.");
-      } catch (err) { showToast("Reset password gagal: " + err.message, "error"); }
-    }
-
-    // Data tidak lagi otomatis login sebagai Admin contoh dari localStorage.
     window.onload = async function() {
       if (window.supabase && SUPABASE_URL.startsWith("https://") &&
           !SUPABASE_URL.includes("GANTI-PROJECT") &&
@@ -1903,7 +1899,6 @@ FOR SELECT USING (auth.jwt() ->> 'sub' = teacher_id);</code></pre>
       showLoginScreen();
     };
 
-    // Menampilkan error jika koneksi Supabase belum disetel.
     window.addEventListener("unhandledrejection", e => {
       console.error("Kesalahan aplikasi:", e.reason);
     });
